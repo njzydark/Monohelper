@@ -1,0 +1,25 @@
+{
+  "name": "@monorepo-doctor/cli",
+  "version": "0.1.0",
+  "description": "",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsup src -d dist --format cjs,esm --dts --clean --sourcemap --watch src",
+    "build": "tsup src -d dist --format cjs,esm --dts --clean",
+    "prepublishOnly": "npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/njzydark/monorepo-doctor.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/njzydark/monorepo-doctor/issues"
+  },
+  "homepage": "https://github.com/njzydark/monorepo-doctor#readme",
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "name": "monorepo-doctor",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=14",
+    "pnpm": "6"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/njzydark/monorepo-doctor.git"
+  },
+  "keywords": [],
+  "author": "njzy <njzydark@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/njzydark/monorepo-doctor/issues"
+  },
+  "homepage": "https://github.com/njzydark/monorepo-doctor#readme",
+  "devDependencies": {
+    "@types/node": "^16.11.56",
+    "ts-node": "^10.9.1",
+    "tsup": "^6.2.3",
+    "typescript": "^4.8.2"
+  }
+}
