@@ -1,5 +1,5 @@
 {
-  "name": "monorepo-doctor",
+  "name": "monorepo-helper",
   "version": "0.1.0",
   "private": true,
   "engines": {
@@ -11,15 +11,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/njzydark/monorepo-doctor.git"
+    "url": "git+https://github.com/njzydark/monorepo-helper.git"
   },
   "keywords": [],
   "author": "njzy <njzydark@gmail.com>",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/njzydark/monorepo-doctor/issues"
+    "url": "https://github.com/njzydark/monorepo-helper/issues"
   },
-  "homepage": "https://github.com/njzydark/monorepo-doctor#readme",
+  "homepage": "https://github.com/njzydark/monorepo-helper#readme",
   "devDependencies": {
     "@types/node": "^16.11.56",
     "nodemon": "^2.0.19",

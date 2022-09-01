@@ -1,6 +1,11 @@
-# monorepo-doctor
+# monorepo-helper
 
-A monorepo tool to help check package version consistency and provide related fix suggestions
+A tool to enhance the monorepo development experience
+
+## Features
+
+- Provide cli tool to check package version consistency and provide related fix suggestions
+- Provide vscode extension to enhance the local development experience
 
 ## Attention
 

@@ -1,5 +1,5 @@
 {
-  "name": "@monorepo-doctor/cli",
+  "name": "@monorepo-helper/cli",
   "version": "0.1.0",
   "description": "",
   "main": "dist/index.js",
@@ -10,15 +10,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/njzydark/monorepo-doctor.git"
+    "url": "git+https://github.com/njzydark/monorepo-helper.git"
   },
   "keywords": [],
   "author": "",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/njzydark/monorepo-doctor/issues"
+    "url": "https://github.com/njzydark/monorepo-helper/issues"
   },
-  "homepage": "https://github.com/njzydark/monorepo-doctor#readme",
+  "homepage": "https://github.com/njzydark/monorepo-helper#readme",
   "publishConfig": {
     "access": "public"
   }
