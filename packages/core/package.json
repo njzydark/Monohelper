@@ -4,7 +4,7 @@
   "description": "",
   "main": "dist/index.js",
   "scripts": {
-    "start": "nodemon --watch dist dist/index.js",
+    "start": "nodemon --watch dist --delay 0.3 dist/index.js",
     "dev": "tsup src -d dist --format cjs,esm --dts --clean --sourcemap --watch src",
     "build": "tsup src -d dist --format cjs,esm --dts --clean",
     "prepublishOnly": "npm run build"
@@ -28,5 +28,8 @@
     "@pnpm/logger": "^4.0.0",
     "glob": "^8.0.3",
     "yaml": "^2.1.1"
+  },
+  "devDependencies": {
+    "@types/glob": "^8.0.0"
   }
 }

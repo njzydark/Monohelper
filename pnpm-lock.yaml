@@ -23,6 +23,7 @@ importers:
     specifiers:
       '@pnpm/lockfile-file': ^5.3.3
       '@pnpm/logger': ^4.0.0
+      '@types/glob': ^8.0.0
       glob: ^8.0.3
       yaml: ^2.1.1
     dependencies:
@@ -30,6 +31,8 @@ importers:
       '@pnpm/logger': 4.0.0
       glob: 8.0.3
       yaml: 2.1.1
+    devDependencies:
+      '@types/glob': 8.0.0
 
 packages:
 
@@ -177,6 +180,17 @@ packages:
 
   /@tsconfig/node16/1.0.3:
     resolution: {integrity: sha512-yOlFc+7UtL/89t2ZhjPvvB/DeAr3r+Dq58IgzsFkOAvVC6NMJXmCGjbptdXdR9qsX7pKcTL+s87FtYREi2dEEQ==}
+    dev: true
+
+  /@types/glob/8.0.0:
+    resolution: {integrity: sha512-l6NQsDDyQUVeoTynNpC9uRvCUint/gSUXQA2euwmTuWGvPY5LSDUu6tkCtJB2SvGQlJQzLaKqcGZP4//7EDveA==}
+    dependencies:
+      '@types/minimatch': 5.1.2
+      '@types/node': 16.11.56
+    dev: true
+
+  /@types/minimatch/5.1.2:
+    resolution: {integrity: sha512-K0VQKziLUWkVKiRVrx4a40iPaxTUefQmjtkQofBkYRcoaaL/8rhwDWww9qWbrgicNOgnpIsMxyNIUM4+n6dUIA==}
     dev: true
 
   /@types/node/16.11.56:
@@ -334,16 +348,10 @@ packages:
       shebang-command: 2.0.0
       which: 2.0.2
 
-  /debug/3.2.7_supports-color@5.5.0:
+  /debug/3.2.7:
     resolution: {integrity: sha512-CFjzYYAi4ThfiQvizrFQevTTXHtnCqWfe7x1AhgEscTz6ZbLbfoLRLPugTQyBth6f8ZERVUSyWHFD/7Wu4t1XQ==}
-    peerDependencies:
-      supports-color: '*'
-    peerDependenciesMeta:
-      supports-color:
-        optional: true
     dependencies:
       ms: 2.1.2
-      supports-color: 5.5.0
     dev: true
 
   /debug/4.3.4:
@@ -869,7 +877,7 @@ packages:
     requiresBuild: true
     dependencies:
       chokidar: 3.5.3
-      debug: 3.2.7_supports-color@5.5.0
+      debug: 3.2.7
       ignore-by-default: 1.0.1
       minimatch: 3.1.2
       pstree.remy: 1.1.8
