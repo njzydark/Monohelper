@@ -4,6 +4,7 @@
   "description": "",
   "main": "dist/index.js",
   "scripts": {
+    "start": "nodemon --watch dist dist/index.js",
     "dev": "tsup src -d dist --format cjs,esm --dts --clean --sourcemap --watch src",
     "build": "tsup src -d dist --format cjs,esm --dts --clean",
     "prepublishOnly": "npm run build"
@@ -25,6 +26,7 @@
   "dependencies": {
     "@pnpm/lockfile-file": "^5.3.3",
     "@pnpm/logger": "^4.0.0",
+    "glob": "^8.0.3",
     "yaml": "^2.1.1"
   }
 }

@@ -1,0 +1,36 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "npm",
+			"script": "dev",
+			"path": "packages/core",
+			"problemMatcher": [
+				{
+					"owner": "typescript",
+					"fileLocation": [
+						"relative",
+						"${workspaceFolder}/packages/core"
+					],
+					"pattern": [
+						{
+							"regexp": "^(.*)\\((\\d+),(\\d+)\\):\\s+(warning|error)\\s(.*)$",
+							"file": 1,
+							"line": 2,
+							"column": 3,
+							"severity": 4,
+							"message": 5
+						}
+					],
+					"background": {
+						"activeOnStart": true,
+						"beginsPattern": "^(CLI Building entry|CLI Change detected).*$",
+						"endsPattern": "^(DTS ⚡️ Build success|Error).*$"
+					}
+				}
+			],
+			"label": "core:dev",
+			"isBackground": true
+		}
+	]
+}
