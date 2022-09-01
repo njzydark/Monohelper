@@ -22,6 +22,7 @@
   "homepage": "https://github.com/njzydark/monorepo-helper#readme",
   "devDependencies": {
     "@types/node": "^16.11.56",
+    "glob": "7",
     "nodemon": "^2.0.19",
     "ts-node": "^10.9.1",
     "tsup": "^6.2.3",

@@ -26,7 +26,10 @@
   "dependencies": {
     "@pnpm/lockfile-file": "^5.3.3",
     "@pnpm/logger": "^4.0.0",
+    "@types/semver": "^7.3.12",
+    "chalk": "^5.0.1",
     "glob": "^8.0.3",
+    "semver": "^7.3.7",
     "yaml": "^2.1.1"
   },
   "devDependencies": {

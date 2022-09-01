@@ -19,11 +19,18 @@ export interface IRawPackageItem {
   peerDependencies?: IRawDependencies;
 }
 
+type DependencyType = "dependency" | "devDependency" | "peerDependency";
+
 export interface IDependencyItem {
   name: string;
   version: string;
   lockVersion?: string;
-  type: "dependency" | "devDependency" | "peerDependency";
+  type: DependencyType;
+  children?: {
+    name: string;
+    version: string;
+    type: DependencyType;
+  }[];
 }
 
 export interface IPackageItem {
@@ -33,4 +40,19 @@ export interface IPackageItem {
   version: string;
   dependcies: IDependencyItem[];
   isRoot?: boolean;
+}
+
+export interface IVersionCheckDependencyItem extends IDependencyItem {
+  package: {
+    name: string;
+    relativeName: string;
+    path: string;
+    isRoot?: boolean;
+  };
+}
+
+export interface IDependenciesObjectData {
+  [name: string]: (Omit<IVersionCheckDependencyItem, "package"> & {
+    packages: IVersionCheckDependencyItem["package"][];
+  })[];
 }

@@ -21,5 +21,8 @@
   "homepage": "https://github.com/njzydark/monorepo-helper#readme",
   "publishConfig": {
     "access": "public"
+  },
+  "dependencies": {
+    "glob": "7"
   }
 }
