@@ -19,6 +19,7 @@ const supportedPackageManager = ["pnpm"];
 export class MonorepoHelperCore {
   config: Required<IMonorepoHelperCoreConfig>;
   packages: IPackageItem[] = [];
+  dependencies: IVersionCheckDependencyItem[] = [];
   dependenciesObjectData: IDependenciesObjectData = {};
   isPackageManagerSupport = false;
 
@@ -98,7 +99,7 @@ export class MonorepoHelperCore {
   }
 
   getDependenciesObjectData() {
-    let dependencies = this.packages.reduce<IVersionCheckDependencyItem[]>((acc, packageItem) => {
+    this.dependencies = this.packages.reduce<IVersionCheckDependencyItem[]>((acc, packageItem) => {
       return acc.concat(
         packageItem.dependcies.map((item) => {
           return {
@@ -114,7 +115,7 @@ export class MonorepoHelperCore {
       );
     }, []);
 
-    this.dependenciesObjectData = dependencies.reduce<IDependenciesObjectData>((acc, cur) => {
+    this.dependenciesObjectData = this.dependencies.reduce<IDependenciesObjectData>((acc, cur) => {
       if (!acc[cur.name]) {
         acc[cur.name] = [{ ...cur, packages: [cur.package] }];
       } else {
@@ -216,8 +217,56 @@ export class MonorepoHelperCore {
     };
   }
 
-  async fixVersion() {
-    console.log("fix version");
+  async lockVersion(options: {
+    /**
+     * @default false
+     */
+    silent?: boolean;
+    excludePackageName?: string[];
+    dependencyName: string;
+    dependencyVersion: string;
+  }) {
+    if (!this.checkPackageManagerIsSupport()) {
+      return;
+    }
+
+    const { silent, excludePackageName, dependencyName, dependencyVersion } = { silent: false, ...options };
+
+    const filteredDependencies = this.dependencies.filter((item) => {
+      let flag = false;
+      if (item.name === dependencyName && item.version && item.version !== dependencyVersion) {
+        flag = true;
+      }
+      if (flag && excludePackageName?.length) {
+        flag = !excludePackageName.some((name) => item.package.name === name);
+      }
+      return flag;
+    });
+
+    const promises = filteredDependencies.map(async (item) => {
+      const path = item.package.path;
+      const originData = await fs.readFile(path, "utf-8");
+      if (originData) {
+        const regx = new RegExp(`("${dependencyName}")(:\\s*)(".*")`, "g");
+        const newData = originData.replace(regx, `$1$2"${dependencyVersion}"`);
+        await fs.writeFile(path, newData);
+      }
+    });
+
+    await Promise.all(promises);
+
+    if (!silent) {
+      console.log("");
+      if (filteredDependencies.length) {
+        console.log(chalk.green("🎉 Version locking complete!"));
+      } else {
+        console.log("No dependcy need to lock version");
+      }
+    }
+
+    return {
+      filteredDependencies,
+    };
   }
 
   printCheckResult(
@@ -307,4 +356,8 @@ export class MonorepoHelperCore {
   });
   await monorepoHelper.init();
   monorepoHelper.checkVersion();
+  // await monorepoHelper.lockVersion({
+  //   dependencyName: "glob",
+  //   dependencyVersion: "^8.0.3",
+  // });
 })();
