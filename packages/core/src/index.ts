@@ -14,13 +14,19 @@ import {
 import { getDependenciesArrayData } from "./utils";
 import { pnpmLockFileParser } from "./lockFileParser/pnpm";
 
+const supportedPackageManager = ["pnpm"];
+
 export class MonorepoHelperCore {
   config: Required<IMonorepoHelperCoreConfig>;
   packages: IPackageItem[] = [];
   dependenciesObjectData: IDependenciesObjectData = {};
+  isPackageManagerSupport = false;
 
   constructor(config: IMonorepoHelperCoreConfig) {
     this.config = { ...config, lockFileDirectoryPath: config.lockFileDirectoryPath || config.rootDirectoryPath };
+    if (supportedPackageManager.includes(this.config.packageManager)) {
+      this.isPackageManagerSupport = true;
+    }
   }
 
   async init() {
@@ -88,8 +94,6 @@ export class MonorepoHelperCore {
       case "pnpm":
         await pnpmLockFileParser(lockFileDirectoryPath, this.packages);
         break;
-      default:
-        console.log("unsupported package manager: ", packageManager);
     }
   }
 
@@ -143,6 +147,10 @@ export class MonorepoHelperCore {
      */
     excludePackageName?: string[];
   }) {
+    if (!this.checkPackageManagerIsSupport()) {
+      return;
+    }
+
     const finalOptions = {
       silent: false,
       onlyCheckMultipleVersionDependency: true,
@@ -280,6 +288,14 @@ export class MonorepoHelperCore {
     console.log(
       chalk.blue(`Suggestion: lock ${chalk.bgWhiteBright(base.name)} version to ${chalk.bgWhiteBright(maxVersion)}`)
     );
+  }
+
+  private checkPackageManagerIsSupport() {
+    if (!this.isPackageManagerSupport) {
+      console.log(chalk.red(`Unsupported package manager: ${this.config.packageManager}`));
+      return false;
+    }
+    return true;
   }
 }
 
