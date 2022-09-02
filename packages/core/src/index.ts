@@ -17,6 +17,7 @@ import { pnpmLockFileParser } from "./lockFileParser/pnpm";
 export class MonorepoHelperCore {
   config: Required<IMonorepoHelperCoreConfig>;
   packages: IPackageItem[] = [];
+  dependenciesObjectData: IDependenciesObjectData = {};
 
   constructor(config: IMonorepoHelperCoreConfig) {
     this.config = { ...config, lockFileDirectoryPath: config.lockFileDirectoryPath || config.rootDirectoryPath };
@@ -25,6 +26,7 @@ export class MonorepoHelperCore {
   async init() {
     await this.getPackagesBaseData();
     await this.getPackagesLockVersionData();
+    this.getDependenciesObjectData();
   }
 
   async getPackagesBaseData() {
@@ -91,8 +93,8 @@ export class MonorepoHelperCore {
     }
   }
 
-  async checkVersion() {
-    const dependencies = this.packages.reduce<IVersionCheckDependencyItem[]>((acc, packageItem) => {
+  getDependenciesObjectData() {
+    let dependencies = this.packages.reduce<IVersionCheckDependencyItem[]>((acc, packageItem) => {
       return acc.concat(
         packageItem.dependcies.map((item) => {
           return {
@@ -108,7 +110,7 @@ export class MonorepoHelperCore {
       );
     }, []);
 
-    const dependenciesObjectData = dependencies.reduce<IDependenciesObjectData>((acc, cur) => {
+    this.dependenciesObjectData = dependencies.reduce<IDependenciesObjectData>((acc, cur) => {
       if (!acc[cur.name]) {
         acc[cur.name] = [{ ...cur, packages: [cur.package] }];
       } else {
@@ -121,8 +123,66 @@ export class MonorepoHelperCore {
       }
       return acc;
     }, {});
+  }
 
-    const uniqDependenciesObjectData = Object.keys(dependenciesObjectData).reduce<IDependenciesObjectData>(
+  checkVersion(options?: {
+    /**
+     * @default false
+     */
+    silent?: boolean;
+    /**
+     * @default true
+     */
+    onlyCheckMultipleVersionDependency?: boolean;
+    /**
+     * @description the dependency you want to check
+     */
+    dependencyName?: string[];
+    /**
+     * @description the package you want to exclude when check
+     */
+    excludePackageName?: string[];
+  }) {
+    const finalOptions = {
+      silent: false,
+      onlyCheckMultipleVersionDependency: true,
+      ...options,
+    };
+
+    let dependenciesObjectData = this.dependenciesObjectData;
+
+    const { dependencyName, excludePackageName } = finalOptions;
+    if (dependencyName || excludePackageName) {
+      dependenciesObjectData = Object.keys(dependenciesObjectData).reduce<IDependenciesObjectData>((acc, key) => {
+        const curDependency = dependenciesObjectData[key];
+
+        if (dependencyName?.length) {
+          if (dependencyName?.some((tempname) => key.includes(tempname))) {
+            acc[key] = curDependency;
+          } else {
+            return acc;
+          }
+        }
+
+        if (excludePackageName?.length) {
+          const newDependency = curDependency.filter((item) => {
+            if (
+              item.packages.some((temp) =>
+                excludePackageName.some((name) => temp.name.includes(name) || temp.relativeName.includes(name))
+              )
+            ) {
+              return false;
+            }
+            return true;
+          });
+          acc[key] = newDependency;
+        }
+
+        return acc;
+      }, {});
+    }
+
+    const multipleVersionDependenciesObjectData = Object.keys(dependenciesObjectData).reduce<IDependenciesObjectData>(
       (acc, key) => {
         const curData = dependenciesObjectData[key];
         if (dependenciesObjectData[key].length > 1) {
@@ -133,23 +193,44 @@ export class MonorepoHelperCore {
       {}
     );
 
-    const uniqDependenciesCount = Object.keys(uniqDependenciesObjectData).length;
-
-    if (uniqDependenciesCount > 0) {
-      console.log(chalk.yellow("This monorepo has multiple version dependencies: "));
-      console.log("");
-      this.printDependenciesCheckResult(uniqDependenciesObjectData);
-      console.log("");
-    } else {
-      console.log(chalk.green("🎉 This monorepo's all package dependencies has same version!"));
+    if (!finalOptions.silent) {
+      finalOptions.onlyCheckMultipleVersionDependency
+        ? this.printCheckResult(multipleVersionDependenciesObjectData, {
+            isMultipleVersionCheck: true,
+          })
+        : this.printCheckResult(dependenciesObjectData, {
+            isMultipleVersionCheck: false,
+          });
     }
+
+    return {
+      multipleVersionDependenciesObjectData,
+    };
   }
 
   async fixVersion() {
     console.log("fix version");
   }
 
-  private printDependenciesCheckResult(data: IDependenciesObjectData) {
+  printCheckResult(
+    data: IDependenciesObjectData,
+    {
+      isMultipleVersionCheck,
+    }: {
+      isMultipleVersionCheck: boolean;
+    }
+  ) {
+    if (isMultipleVersionCheck) {
+      const count = Object.keys(data).length;
+      if (count === 0) {
+        console.log(chalk.green("🎉 Dependencies are all the same version!"));
+        return;
+      }
+
+      console.log(chalk.yellow("Existence of different versions of dependencies: "));
+      console.log("");
+    }
+
     const Symbols = {
       BRANCH: "├──",
       EMPTY: "",
@@ -159,11 +240,14 @@ export class MonorepoHelperCore {
     };
 
     Object.keys(data).forEach((key, kIndex) => {
+      const curItem = data[key];
+      if (curItem.length === 0) {
+        return;
+      }
       if (kIndex !== 0) {
         console.log("");
       }
-      console.log(key);
-      const curItem = data[key];
+      console.log(chalk.bgGrey(key));
       curItem.forEach((item, index) => {
         const isFirst = index === 0;
         const isLast = index === curItem.length - 1;
@@ -182,11 +266,13 @@ export class MonorepoHelperCore {
           console.log(Symbols.VERTICAL);
         }
       });
-      this.printSuggestions(curItem);
+      if (isMultipleVersionCheck) {
+        this.printSuggestions(curItem);
+      }
     });
   }
 
-  private printSuggestions(data: IDependenciesObjectData[string]) {
+  printSuggestions(data: IDependenciesObjectData[string]) {
     const base = data[0];
     const versions = data.map((item) => item.lockVersion).filter(Boolean) as string[];
     const maxVersion = semver.maxSatisfying(versions, "*");
@@ -197,6 +283,7 @@ export class MonorepoHelperCore {
   }
 }
 
+// TODO: test code
 (async () => {
   const monorepoHelper = new MonorepoHelperCore({
     rootDirectoryPath: path.resolve(__dirname, "../../../"),
