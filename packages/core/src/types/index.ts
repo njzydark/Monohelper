@@ -43,16 +43,11 @@ export interface IPackageItem {
 }
 
 export interface IVersionCheckDependencyItem extends IDependencyItem {
-  package: {
-    name: string;
-    relativeName: string;
-    path: string;
-    isRoot?: boolean;
-  };
+  peerDependencyVersion?: string;
+  devDependencyVersion?: string;
+  package: Omit<IPackageItem, "dependcies">;
 }
 
 export interface IDependenciesObjectData {
-  [name: string]: (Omit<IVersionCheckDependencyItem, "package"> & {
-    packages: IVersionCheckDependencyItem["package"][];
-  })[];
+  [name: string]: IVersionCheckDependencyItem[][];
 }

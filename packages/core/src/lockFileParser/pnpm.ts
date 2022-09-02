@@ -32,10 +32,19 @@ export const pnpmLockFileParser = async (lockFileDirectoryPath: string, packages
   }
 
   return packages.map((packageItem) => {
-    const packageLockData = res.importers[packageItem.relativeName];
+    const importerName = Object.keys(res.importers || {}).find((item) => item.includes(packageItem.relativeName)) || "";
+    const packageLockData = res.importers[importerName];
     if (packageLockData) {
-      changePackageDependenciesData(res.packages, packageLockData.dependencies, packageItem.dependcies);
-      changePackageDependenciesData(res.packages, packageLockData.devDependencies, packageItem.dependcies);
+      changePackageDependenciesData(
+        res.packages,
+        packageLockData.dependencies,
+        packageItem.dependcies.filter((item) => item.type === "dependency")
+      );
+      changePackageDependenciesData(
+        res.packages,
+        packageLockData.devDependencies,
+        packageItem.dependcies.filter((item) => item.type === "devDependency")
+      );
     }
     return packageItem;
   });

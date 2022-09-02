@@ -31,6 +31,40 @@
 			],
 			"label": "core:dev",
 			"isBackground": true
+		},
+		{
+			"type": "npm",
+			"script": "dev",
+			"path": "packages/cli",
+			"problemMatcher": [
+				{
+					"owner": "typescript",
+					"fileLocation": [
+						"relative",
+						"${workspaceFolder}/packages/cli"
+					],
+					"pattern": [
+						{
+							"regexp": "^(.*)\\((\\d+),(\\d+)\\):\\s+(warning|error)\\s(.*)$",
+							"file": 1,
+							"line": 2,
+							"column": 3,
+							"severity": 4,
+							"message": 5
+						}
+					],
+					"background": {
+						"activeOnStart": true,
+						"beginsPattern": "^(CLI Building entry|CLI Change detected).*$",
+						"endsPattern": "^(DTS ⚡️ Build success|Error).*$"
+					}
+				}
+			],
+			"label": "cli:dev",
+			"dependsOn": [
+				"core:dev"
+			],
+			"isBackground": true
 		}
 	]
 }

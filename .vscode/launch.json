@@ -12,8 +12,21 @@
       "runtimeArgs": [
         "start"
       ],
+      "console": "integratedTerminal",
       "preLaunchTask": "core:dev",
       "cwd": "${workspaceFolder}/packages/core",
+    },
+    {
+      "name": "cli-debug",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "start"
+      ],
+      "console": "integratedTerminal",
+      "preLaunchTask": "cli:dev",
+      "cwd": "${workspaceFolder}/packages/cli",
     }
   ]
 }
