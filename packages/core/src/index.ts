@@ -167,11 +167,16 @@ export class MonorepoHelperCore {
     /**
      * @default true
      */
-    onlyCheckMultipleVersionDependency?: boolean;
+    onlyDifferentVersion?: boolean;
     /**
      * @description the dependency you want to check
      */
     dependencyNames?: string[];
+    /**
+     * @description the package you want to include when check
+     * @default all
+     */
+    includePackageNames?: string[];
     /**
      * @description the package you want to exclude when check
      */
@@ -183,16 +188,16 @@ export class MonorepoHelperCore {
 
     const finalOptions = {
       silent: false,
-      onlyCheckMultipleVersionDependency: true,
+      onlyDifferentVersion: true,
       ...options,
     };
 
     let dependenciesObjectData = this.dependenciesObjectData;
 
-    const { dependencyNames, excludePackageNames } = finalOptions;
-    if (dependencyNames?.length || excludePackageNames?.length) {
+    const { dependencyNames, includePackageNames, excludePackageNames } = finalOptions;
+    if (dependencyNames?.length || includePackageNames?.length || excludePackageNames?.length) {
       dependenciesObjectData = Object.keys(dependenciesObjectData).reduce<IDependenciesObjectData>((acc, key) => {
-        const curDependency = dependenciesObjectData[key];
+        let curDependency = dependenciesObjectData[key];
 
         if (dependencyNames?.length) {
           if (dependencyNames?.some((tempname) => key.includes(tempname))) {
@@ -200,6 +205,24 @@ export class MonorepoHelperCore {
           } else {
             return acc;
           }
+        }
+
+        if (includePackageNames?.length) {
+          const newDependency = curDependency.reduce<IVersionCheckDependencyItem[][]>((acc, cur, curIndex) => {
+            acc[curIndex] = [];
+            cur.map((item) => {
+              if (
+                includePackageNames.some(
+                  (temp) => item.package.name.includes(temp) || item.package.relativeName.includes(temp)
+                )
+              ) {
+                acc[curIndex].push(item);
+              }
+            });
+            return acc;
+          }, []);
+          curDependency = newDependency.filter((item) => item.length);
+          acc[key] = curDependency;
         }
 
         if (excludePackageNames?.length) {
@@ -234,7 +257,7 @@ export class MonorepoHelperCore {
     );
 
     if (!finalOptions.silent) {
-      finalOptions.onlyCheckMultipleVersionDependency
+      finalOptions.onlyDifferentVersion
         ? this.printCheckResult(multipleVersionDependenciesObjectData, {
             isMultipleVersionCheck: true,
           })
