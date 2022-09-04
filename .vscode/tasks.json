@@ -56,7 +56,7 @@
 					"background": {
 						"activeOnStart": true,
 						"beginsPattern": "^(CLI Building entry|CLI Change detected).*$",
-						"endsPattern": "^(DTS ⚡️ Build success|Error).*$"
+						"endsPattern": "^(CJS ⚡️ Build success|Error).*$"
 					}
 				}
 			],
