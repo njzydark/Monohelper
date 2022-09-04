@@ -279,12 +279,21 @@ export class MonorepoHelperCore {
     excludePackageName?: string[];
     dependencyName: string;
     dependencyVersion: string;
+    /**
+     * peerDependency version
+     * @description set peerDependency version if it exists
+     * @default ^dependencyVersion
+     */
+    peerVersion?: string;
   }) {
     if (!this.checkPackageManagerIsSupport()) {
       return;
     }
 
-    const { silent, excludePackageName, dependencyName, dependencyVersion } = { silent: false, ...options };
+    const { silent, excludePackageName, dependencyName, dependencyVersion, peerVersion } = {
+      silent: false,
+      ...options,
+    };
 
     const filteredDependencies = this.dependencies.filter((item) => {
       let flag = false;
@@ -301,8 +310,12 @@ export class MonorepoHelperCore {
       const path = item.package.path;
       const originData = await fs.readFile(path, "utf-8");
       if (originData) {
-        const regx = new RegExp(`("${dependencyName}")(:\\s*)(".*")`, "g");
-        const newData = originData.replace(regx, `$1$2"${dependencyVersion}"`);
+        const regx = new RegExp(`(dependencies|devDependencies)(.*)("${dependencyName}")(:\\s*)("\\S*")`, "gs");
+        let newData = originData.replace(regx, `$1$2$3$4"${dependencyVersion}"`);
+        if (item.peerDependencyVersion) {
+          const regx = new RegExp(`(peerDependencies)(.*)("${dependencyName}")(:\\s*)("\\S*")`, "gs");
+          newData = originData.replace(regx, `$1$2$3$4"${peerVersion ? peerVersion : "^" + dependencyVersion}"`);
+        }
         await fs.writeFile(path, newData);
       }
     });
