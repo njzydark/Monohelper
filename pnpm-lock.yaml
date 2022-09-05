@@ -20,11 +20,11 @@ importers:
 
   packages/cli:
     specifiers:
-      '@monorepo-helper/core': workspace:^0.1.0
+      '@monohelper/core': workspace:^0.1.0
       commander: ^9.4.0
       glob: '7'
     dependencies:
-      '@monorepo-helper/core': link:../core
+      '@monohelper/core': link:../core
       commander: 9.4.0
       glob: 7.2.3
 

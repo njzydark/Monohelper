@@ -1,4 +1,4 @@
-import { MonorepoHelperCore } from "@monorepo-helper/core";
+import { MonorepoHelperCore } from "@monohelper/core";
 import path from "path";
 import { program } from "./program";
 

@@ -1,5 +1,5 @@
 {
-  "name": "@monorepo-helper/cli",
+  "name": "@monohelper/cli",
   "cliName": "monohelper",
   "version": "0.1.0",
   "description": "",
@@ -14,20 +14,20 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/njzydark/monorepo-helper.git"
+    "url": "git+https://github.com/njzydark/Monohelper.git"
   },
   "keywords": [],
   "author": "",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/njzydark/monorepo-helper/issues"
+    "url": "https://github.com/njzydark/Monohelper/issues"
   },
-  "homepage": "https://github.com/njzydark/monorepo-helper#readme",
+  "homepage": "https://github.com/njzydark/Monohelper#readme",
   "publishConfig": {
     "access": "public"
   },
   "dependencies": {
-    "@monorepo-helper/core": "workspace:^0.1.0",
+    "@monohelper/core": "workspace:^0.1.0",
     "commander": "^9.4.0",
     "glob": "7"
   }
