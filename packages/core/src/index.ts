@@ -248,7 +248,15 @@ export class MonorepoHelperCore {
     const multipleVersionDependenciesObjectData = Object.keys(dependenciesObjectData).reduce<IDependenciesObjectData>(
       (acc, key) => {
         const curData = dependenciesObjectData[key];
+        // check multiple lock version
         if (dependenciesObjectData[key].length > 1) {
+          acc[key] = curData;
+          return acc;
+        }
+        // check multiple version
+        const versions = curData[0]?.map((item) => item.version);
+        const uniqVersions = Array.from(new Set(versions));
+        if (uniqVersions.length > 1) {
           acc[key] = curData;
         }
         return acc;
