@@ -1,5 +1,5 @@
 import { MonorepoHelperCore } from "@monohelper/core";
-import path from "path";
+import { getConfig, getConfigDirectoryPath } from "@monohelper/config";
 import { program } from "./program";
 
 export const dependencyAction = async (
@@ -20,10 +20,11 @@ export const dependencyAction = async (
 
   const globaOptions = program.optsWithGlobals<{ packageManager: string }>();
 
-  const monorepoHelper = new MonorepoHelperCore({
-    rootDirectoryPath: process.cwd(),
-    lockFileDirectoryPath: path.join(process.cwd(), "common/config/rush"),
+  const configRootPath = await getConfigDirectoryPath();
+  const config = configRootPath ? await getConfig(configRootPath) : undefined;
+  const monorepoHelper = new MonorepoHelperCore(configRootPath || process.cwd(), {
     packageManager: globaOptions.packageManager as any,
+    ...config,
   });
 
   await monorepoHelper.init();

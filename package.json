@@ -7,7 +7,10 @@
     "pnpm": "6"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "types:build": "pnpm build --filter types",
+    "core:build": "pnpm build --filter core",
+    "config:build": "pnpm build --filter config",
+    "cli:build": "pnpm run types:build && pnpm run core:build && pnpm run config:build && pnpm build --filter cli"
   },
   "repository": {
     "type": "git",

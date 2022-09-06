@@ -2,6 +2,7 @@
 import { program } from "./program";
 import pkg from "../package.json";
 import { dependencyAction } from "./dependency";
+import { configAction } from "./config";
 
 program
   .name(pkg.cliName)
@@ -22,6 +23,6 @@ program
   .option("--peer-version <peerVersion>", "lock single peerDependency version")
   .action(dependencyAction);
 
-program.command("config").option("-i,--init", "init config");
+program.command("config").option("-i,--init", "init config").action(configAction);
 
 program.parse(process.argv);

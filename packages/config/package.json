@@ -1,11 +1,8 @@
 {
-  "name": "@monohelper/cli",
-  "cliName": "monohelper",
+  "name": "@monohelper/config",
   "version": "0.1.0",
   "description": "",
-  "bin": {
-    "monohelper": "dist/index.js"
-  },
+  "main": "dist/index.js",
   "scripts": {
     "start": "nodemon --watch dist --delay 0.3 dist/index.js",
     "dev": "tsup src -d dist --format cjs --dts --clean --sourcemap --watch src",
@@ -27,10 +24,13 @@
     "access": "public"
   },
   "dependencies": {
-    "@monohelper/config": "workspace:^0.1.0",
-    "@monohelper/core": "workspace:^0.1.0",
     "@monohelper/types": "workspace:^0.1.0",
-    "commander": "^9.4.0",
-    "glob": "7"
+    "chalk": "4.1.2",
+    "glob": "^8.0.3",
+    "semver": "^7.3.7"
+  },
+  "devDependencies": {
+    "@types/glob": "^8.0.0",
+    "@types/semver": "^7.3.12"
   }
 }
