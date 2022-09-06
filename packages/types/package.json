@@ -1,0 +1,28 @@
+{
+  "name": "@monohelper/types",
+  "version": "0.1.0",
+  "description": "",
+  "types": "dist",
+  "scripts": {
+    "dev": "tsc -b -w",
+    "build": "tsc -b",
+    "prepublishOnly": "npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/njzydark/Monohelper.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/njzydark/Monohelper/issues"
+  },
+  "homepage": "https://github.com/njzydark/Monohelper#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "typescript": "^4.8.2"
+  }
+}

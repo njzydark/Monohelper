@@ -1,12 +1,3 @@
-export interface IMonorepoHelperCoreConfig {
-  rootDirectoryPath: string;
-  /**
-   * @default same as rootDirectoryPath
-   */
-  lockFileDirectoryPath?: string;
-  packageManager: "pnpm";
-}
-
 export interface IRawDependencies {
   [name: string]: string;
 }
@@ -31,6 +22,7 @@ export interface IDependencyItem {
     version: string;
     type: DependencyType;
   }[];
+  transitivePeerDependencies?: string[];
 }
 
 export interface IPackageItem {

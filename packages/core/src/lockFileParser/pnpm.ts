@@ -1,5 +1,5 @@
 import { PackageSnapshots, readWantedLockfile, ResolvedDependencies } from "@pnpm/lockfile-file";
-import { IPackageItem } from "../types";
+import { IPackageItem } from "@monohelper/types";
 import { getDependenciesArrayData } from "../utils";
 
 const changePackageDependenciesData = (
@@ -16,6 +16,7 @@ const changePackageDependenciesData = (
         const dependcies = getDependenciesArrayData(curChildrenData.dependencies, "dependency");
         const peerDependencies = getDependenciesArrayData(curChildrenData.peerDependencies, "peerDependency");
         cur.children = [...dependcies, ...peerDependencies];
+        cur.transitivePeerDependencies = curChildrenData.transitivePeerDependencies;
       }
     }
   });

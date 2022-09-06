@@ -20,16 +20,38 @@ importers:
 
   packages/cli:
     specifiers:
+      '@monohelper/config': workspace:^0.1.0
       '@monohelper/core': workspace:^0.1.0
+      '@monohelper/types': workspace:^0.1.0
       commander: ^9.4.0
       glob: '7'
     dependencies:
+      '@monohelper/config': link:../config
       '@monohelper/core': link:../core
+      '@monohelper/types': link:../types
       commander: 9.4.0
       glob: 7.2.3
 
+  packages/config:
+    specifiers:
+      '@monohelper/types': workspace:^0.1.0
+      '@types/glob': ^8.0.0
+      '@types/semver': ^7.3.12
+      chalk: 4.1.2
+      glob: ^8.0.3
+      semver: ^7.3.7
+    dependencies:
+      '@monohelper/types': link:../types
+      chalk: 4.1.2
+      glob: 8.0.3
+      semver: 7.3.7
+    devDependencies:
+      '@types/glob': 8.0.0
+      '@types/semver': 7.3.12
+
   packages/core:
     specifiers:
+      '@monohelper/types': workspace:^0.1.0
       '@pnpm/lockfile-file': ^5.3.3
       '@pnpm/logger': ^4.0.0
       '@types/glob': ^8.0.0
@@ -39,6 +61,7 @@ importers:
       semver: ^7.3.7
       yaml: ^2.1.1
     dependencies:
+      '@monohelper/types': link:../types
       '@pnpm/lockfile-file': 5.3.3_@pnpm+logger@4.0.0
       '@pnpm/logger': 4.0.0
       chalk: 4.1.2
@@ -48,6 +71,12 @@ importers:
     devDependencies:
       '@types/glob': 8.0.0
       '@types/semver': 7.3.12
+
+  packages/types:
+    specifiers:
+      typescript: ^4.8.2
+    devDependencies:
+      typescript: 4.8.2
 
 packages:
 

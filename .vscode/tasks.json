@@ -30,7 +30,10 @@
 				}
 			],
 			"label": "core:dev",
-			"isBackground": true
+			"isBackground": true,
+			"dependsOn": [
+				"types:dev"
+			],
 		},
 		{
 			"type": "npm",
@@ -62,8 +65,50 @@
 			],
 			"label": "cli:dev",
 			"dependsOn": [
-				"core:dev"
+				"core:dev",
+				"config:dev"
 			],
+			"isBackground": true
+		},
+		{
+			"type": "npm",
+			"script": "dev",
+			"path": "packages/config",
+			"problemMatcher": [
+				{
+					"owner": "typescript",
+					"fileLocation": [
+						"relative",
+						"${workspaceFolder}/packages/config"
+					],
+					"pattern": [
+						{
+							"regexp": "^(.*)\\((\\d+),(\\d+)\\):\\s+(warning|error)\\s(.*)$",
+							"file": 1,
+							"line": 2,
+							"column": 3,
+							"severity": 4,
+							"message": 5
+						}
+					],
+					"background": {
+						"activeOnStart": true,
+						"beginsPattern": "^(CLI Building entry|CLI Change detected).*$",
+						"endsPattern": "^(CJS ⚡️ Build success|Error).*$"
+					}
+				}
+			],
+			"label": "config:dev",
+			"isBackground": true
+		},
+		{
+			"type": "npm",
+			"script": "dev",
+			"path": "packages/types",
+			"problemMatcher": [
+				"$tsc-watch"
+			],
+			"label": "types:dev",
 			"isBackground": true
 		}
 	]

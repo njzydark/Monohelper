@@ -24,6 +24,7 @@
     "access": "public"
   },
   "dependencies": {
+    "@monohelper/types": "workspace:^0.1.0",
     "@pnpm/lockfile-file": "^5.3.3",
     "@pnpm/logger": "^4.0.0",
     "chalk": "4.1.2",
