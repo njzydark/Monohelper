@@ -30,3 +30,9 @@ glob
 
 Suggestion: lock glob version to 8.0.3
 ```
+
+## Roadmap
+
+- [ ] check version suggestions support peerDependency
+- [ ] check and lock version support global config
+- [ ] release vscode extension and support display dependency check result in problems pane
