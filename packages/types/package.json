@@ -2,7 +2,7 @@
   "name": "@monohelper/types",
   "version": "0.1.0",
   "description": "",
-  "types": "dist",
+  "main": "dist/index.js",
   "scripts": {
     "dev": "tsc -b -w",
     "build": "tsc -b",
