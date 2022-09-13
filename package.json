@@ -10,7 +10,10 @@
     "types:build": "pnpm build --filter types",
     "core:build": "pnpm build --filter core",
     "config:build": "pnpm build --filter config",
-    "cli:build": "pnpm run types:build && pnpm run core:build && pnpm run config:build && pnpm build --filter cli"
+    "cli:build": "pnpm run types:build && pnpm run core:build && pnpm run config:build && pnpm build --filter cli",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "coverage": "vitest run --coverage"
   },
   "repository": {
     "type": "git",
@@ -25,10 +28,13 @@
   "homepage": "https://github.com/njzydark/Monohelper#readme",
   "devDependencies": {
     "@types/node": "^16.11.56",
+    "@vitest/coverage-c8": "^0.23.1",
+    "@vitest/ui": "^0.23.1",
     "glob": "7",
     "nodemon": "^2.0.19",
     "ts-node": "^10.9.1",
     "tsup": "^6.2.3",
-    "typescript": "^4.8.2"
+    "typescript": "^4.8.2",
+    "vitest": "^0.23.1"
   }
 }
