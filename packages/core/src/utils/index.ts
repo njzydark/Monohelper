@@ -35,7 +35,7 @@ export const filterAndSetManualLockVersionByGlobalConfig = (
       : (includeDependencies?.all || []).concat(curPackageIncludeDependencies);
 
   if (finalIncludeDependencies !== "*" && isNeedInclude) {
-    packageItem.dependcies = packageItem.dependcies.filter((item) => finalIncludeDependencies.includes(item.name));
+    packageItem.dependencies = packageItem.dependencies.filter((item) => finalIncludeDependencies.includes(item.name));
   }
 
   // filter by exclude
@@ -48,9 +48,9 @@ export const filterAndSetManualLockVersionByGlobalConfig = (
       : (excludeDependencies?.all || []).concat(curPackageExcludeDependencies);
 
   if (finalExcludeDependencies === "*") {
-    packageItem.dependcies = [];
+    packageItem.dependencies = [];
   } else if (isNeedExclude) {
-    packageItem.dependcies = packageItem.dependcies.filter((item) => !finalExcludeDependencies.includes(item.name));
+    packageItem.dependencies = packageItem.dependencies.filter((item) => !finalExcludeDependencies.includes(item.name));
   }
 
   // get manual version lock data
@@ -59,7 +59,7 @@ export const filterAndSetManualLockVersionByGlobalConfig = (
 
   const finalDependenciesLockVersionData = { ...lockDependencies?.all, ...curPackageDependenciesLockVersionData };
 
-  packageItem.dependcies = packageItem.dependcies.map((item) => {
+  packageItem.dependencies = packageItem.dependencies.map((item) => {
     const curManualLockVersion = finalDependenciesLockVersionData[item.name];
     if (typeof curManualLockVersion === "string") {
       item.manualLockVersion = {

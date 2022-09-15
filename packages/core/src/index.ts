@@ -8,8 +8,10 @@ import {
   IMonorepoHelperCoreConfig,
   IPackageItem,
   IRawPackageItem,
-  IDependenciesObjectData,
-  IVersionCheckDependencyItem,
+  IAllPackage,
+  IAllDependency,
+  IAllDependencyGroupedByVersion,
+  IDependencyGroupedByVersionItem,
 } from "@monohelper/types";
 
 import { getDependenciesArrayData, filterAndSetManualLockVersionByGlobalConfig } from "./utils";
@@ -20,9 +22,9 @@ const supportedPackageManager = ["pnpm"];
 export class MonorepoHelperCore {
   rootDirectoryPath: string;
   config: IMonorepoHelperCoreConfig;
-  packages: IPackageItem[] = [];
-  dependencies: IVersionCheckDependencyItem[] = [];
-  dependenciesObjectData: IDependenciesObjectData = {};
+  allPackage: IAllPackage = [];
+  allDependency: IAllDependency = [];
+  allDependencyGroupedByVersion: IAllDependencyGroupedByVersion = {};
   isPackageManagerSupport = false;
 
   constructor(rootDirectoryPath: string, config: IMonorepoHelperCoreConfig) {
@@ -34,12 +36,12 @@ export class MonorepoHelperCore {
   }
 
   async init() {
-    await this.getPackagesBaseData();
-    await this.getPackagesLockVersionData();
-    this.getDependenciesObjectData();
+    await this.getAllPackageBaseData();
+    await this.getAllPackageLockVersionData();
+    this.getAllDependencyAndDifferentVersionData();
   }
 
-  async getPackagesBaseData() {
+  async getAllPackageBaseData() {
     const packageFiles = await new Promise<string[]>((resolve, reject) => {
       glob(
         "**/package.json",
@@ -84,16 +86,16 @@ export class MonorepoHelperCore {
         relativeName,
         version: parsedData.version,
         isRoot,
-        dependcies: [...dependencies, ...devDependencies, ...peerDependencies],
+        dependencies: [...dependencies, ...devDependencies, ...peerDependencies],
       };
 
       return filterAndSetManualLockVersionByGlobalConfig(packgeItem, this.config);
     });
     const data = await Promise.all(dataPromises);
-    this.packages = data.filter(Boolean) as IPackageItem[];
+    this.allPackage = data.filter(Boolean) as IAllPackage;
   }
 
-  async getPackagesLockVersionData() {
+  async getAllPackageLockVersionData() {
     const { packageManager, lockFileDirectoryPath } = this.config;
     if (!lockFileDirectoryPath) {
       return;
@@ -103,7 +105,7 @@ export class MonorepoHelperCore {
       : lockFileDirectoryPath;
     switch (packageManager) {
       case "pnpm":
-        await pnpmLockFileParser(finalLockFilePath, this.packages);
+        await pnpmLockFileParser(finalLockFilePath, this.allPackage);
         break;
     }
   }
@@ -114,16 +116,16 @@ export class MonorepoHelperCore {
    * - dependencies: each dependency and package corresponds individually, with no de-duplication grouping
    * - dependenciesObjectData: group same dependency by different package
    */
-  getDependenciesObjectData() {
-    this.dependencies = this.packages.reduce<IVersionCheckDependencyItem[]>((acc, packageItem) => {
-      const peerDependenciesData = packageItem.dependcies
+  getAllDependencyAndDifferentVersionData() {
+    this.allDependency = this.allPackage.reduce<IAllDependency>((acc, packageItem) => {
+      const peerDependenciesData = packageItem.dependencies
         .filter((item) => item.type === "peerDependency")
         .reduce<{ [name: string]: string }>((acc, cur) => {
           acc[cur.name] = cur.version;
           return acc;
         }, {});
 
-      const packageItemDependencies = packageItem.dependcies
+      const packageItemDependencies = packageItem.dependencies
         .filter((item) => {
           let flag = true;
           if (item.type === "peerDependency") {
@@ -139,7 +141,7 @@ export class MonorepoHelperCore {
             return 1;
           }
         })
-        .reduce<IVersionCheckDependencyItem[]>((acc, cur) => {
+        .reduce<IAllDependency>((acc, cur) => {
           if (cur.type === "devDependency") {
             const index = acc.findIndex((item) => item.name === cur.name);
             if (index > -1) {
@@ -172,7 +174,7 @@ export class MonorepoHelperCore {
     }, []);
 
     // group same dependency by different package
-    this.dependenciesObjectData = this.dependencies.reduce<IDependenciesObjectData>((acc, cur) => {
+    this.allDependencyGroupedByVersion = this.allDependency.reduce<IAllDependencyGroupedByVersion>((acc, cur) => {
       if (!acc[cur.name]) {
         acc[cur.name] = [[cur]];
       } else {
@@ -220,55 +222,58 @@ export class MonorepoHelperCore {
       ...options,
     };
 
-    let dependenciesObjectData = this.dependenciesObjectData;
+    let allDependencyGroupedByVersion = this.allDependencyGroupedByVersion;
 
     const { dependencyNames, exact } = finalOptions;
 
     // filter dependency
     if (dependencyNames?.length) {
-      dependenciesObjectData = Object.keys(dependenciesObjectData).reduce<IDependenciesObjectData>((acc, key) => {
-        let curDependency = dependenciesObjectData[key];
+      allDependencyGroupedByVersion = Object.keys(allDependencyGroupedByVersion).reduce<IAllDependencyGroupedByVersion>(
+        (acc, key) => {
+          let curDependency = allDependencyGroupedByVersion[key];
 
-        // filter dependency
-        if (dependencyNames?.length) {
-          if (dependencyNames?.some((name) => (exact ? key === name : key.includes(name)))) {
-            acc[key] = curDependency;
-          } else {
-            return acc;
+          // filter dependency
+          if (dependencyNames?.length) {
+            if (dependencyNames?.some((name) => (exact ? key === name : key.includes(name)))) {
+              acc[key] = curDependency;
+            } else {
+              return acc;
+            }
           }
-        }
 
-        return acc;
-      }, {});
+          return acc;
+        },
+        {}
+      );
     }
 
-    const multipleVersionDependenciesObjectData = Object.keys(dependenciesObjectData).reduce<IDependenciesObjectData>(
-      (acc, key) => {
-        const curData = dependenciesObjectData[key];
-        // check multiple lock version
-        if (dependenciesObjectData[key].length > 1) {
-          acc[key] = curData;
-          return acc;
-        }
-        // check multiple version
-        const versions = curData[0]?.map((item) => item.version);
-        const uniqVersions = Array.from(new Set(versions));
-        if (uniqVersions.length > 1) {
-          acc[key] = curData;
-        }
+    const allDependencyGroupedByOnlyDifferentVersion = Object.keys(
+      allDependencyGroupedByVersion
+    ).reduce<IAllDependencyGroupedByVersion>((acc, key) => {
+      const curData = allDependencyGroupedByVersion[key];
+      // check multiple lock version
+      if (allDependencyGroupedByVersion[key].length > 1) {
+        acc[key] = curData;
         return acc;
-      },
-      {}
-    );
+      }
+      // check multiple version
+      const versions = curData[0]?.map((item) => item.version);
+      const uniqVersions = Array.from(new Set(versions));
+      if (uniqVersions.length > 1) {
+        acc[key] = curData;
+      }
+      return acc;
+    }, {});
 
     if (!finalOptions.silent) {
-      this.printCheckResult(multipleVersionDependenciesObjectData, {
+      this.printCheckResult(allDependencyGroupedByOnlyDifferentVersion, {
         isMultipleVersionCheck: finalOptions.onlyDifferentVersion,
       });
     }
 
     return {
-      multipleVersionDependenciesObjectData,
+      allDependencyGroupedByVersion,
+      allDependencyGroupedByOnlyDifferentVersion,
     };
   }
 
@@ -297,7 +302,7 @@ export class MonorepoHelperCore {
 
     const finalPeerVersion = peerVersion || `^${dependencyVersion}`;
 
-    const filteredDependencies = this.dependencies.filter((item) => {
+    const filteredDependencies = this.allDependency.filter((item) => {
       let flag = false;
       if (item.name === dependencyName) {
         if (item.version && item.version !== dependencyVersion) {
@@ -310,9 +315,9 @@ export class MonorepoHelperCore {
     });
 
     const promises = filteredDependencies.map(async (item) => {
-      const path = item.package.path;
-      const originData = await fs.readFile(path, "utf-8");
-      if (originData) {
+      const path = item.package?.path;
+      const originData = path ? await fs.readFile(path, "utf-8") : null;
+      if (originData && path) {
         const regx = new RegExp(`(dependencies|devDependencies)([^}]*)("${dependencyName}")(:\\s*)("\\S*")`, "gs");
         let newData = originData.replace(regx, `$1$2$3$4"${dependencyVersion}"`);
         if (item.peerDependencyVersion) {
@@ -340,7 +345,7 @@ export class MonorepoHelperCore {
   }
 
   printCheckResult(
-    data: IDependenciesObjectData,
+    data: IAllDependencyGroupedByVersion,
     {
       isMultipleVersionCheck,
     }: {
@@ -386,8 +391,8 @@ export class MonorepoHelperCore {
           console.log(`${isLast ? Symbols.INDENT : Symbols.VERTICAL}${Symbols.VERTICAL}`);
           console.log(
             `${isLast ? Symbols.INDENT : Symbols.VERTICAL}${isItemPackageLast ? Symbols.LAST_BRANCH : Symbols.BRANCH}${
-              item.package.name
-            } (${item.package.isRoot ? "root" : item.package.relativeName}) ${item.version}`
+              item.package?.name
+            } (${item.package?.isRoot ? "root" : item.package?.relativeName}) ${item.version}`
           );
         });
         if (!isLast) {
@@ -400,7 +405,7 @@ export class MonorepoHelperCore {
     });
   }
 
-  getSuggestions({ data, silent = false }: { data: IDependenciesObjectData[string]; silent?: boolean }) {
+  getSuggestions({ data, silent = false }: { data: IDependencyGroupedByVersionItem; silent?: boolean }) {
     const base = data?.[0]?.[0];
     if (!base) {
       return;
@@ -425,11 +430,13 @@ export class MonorepoHelperCore {
           name: string;
           lockVersion?: string;
           version?: string;
-          package: Omit<IPackageItem, "dependcies">;
+          package?: Omit<IPackageItem, "dependencies">;
         }[];
       }>((acc, item) => {
         item.transitivePeerDependencies?.forEach((name) => {
-          const cur = this.dependencies.find((temp) => temp.name === name && temp.package.name === item.package.name);
+          const cur = this.allDependency.find(
+            (temp) => temp.name === name && temp.package?.name === item.package?.name
+          );
           const temp = { name, version: cur?.version, lockVersion: cur?.lockVersion, package: item.package };
           if (acc[name]) {
             acc[name].push(temp);
@@ -448,7 +455,7 @@ export class MonorepoHelperCore {
           console.log(key);
           const curTransitivePeerDependency = transitivePeerDependencies[key];
           curTransitivePeerDependency.forEach((item) => {
-            console.log(`- ${item.package.name} ${item.lockVersion || "unknown"}`);
+            console.log(`- ${item.package?.name} ${item.lockVersion || "unknown"}`);
           });
           const lockVersions = curTransitivePeerDependency
             .map((item) => item.lockVersion?.split("_")[0])

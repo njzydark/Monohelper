@@ -5,7 +5,7 @@ import { getDependenciesArrayData } from "../utils";
 const changePackageDependenciesData = (
   allResolvedPackages: PackageSnapshots = {},
   resolvedDependencies: ResolvedDependencies = {},
-  packageDependencies: IPackageItem["dependcies"]
+  packageDependencies: IPackageItem["dependencies"]
 ) => {
   Object.keys(resolvedDependencies).forEach((key) => {
     const cur = packageDependencies.find((item) => item.name === key);
@@ -39,12 +39,12 @@ export const pnpmLockFileParser = async (lockFileDirectoryPath: string, packages
       changePackageDependenciesData(
         res.packages,
         packageLockData.dependencies,
-        packageItem.dependcies.filter((item) => item.type === "dependency")
+        packageItem.dependencies.filter((item) => item.type === "dependency")
       );
       changePackageDependenciesData(
         res.packages,
         packageLockData.devDependencies,
-        packageItem.dependcies.filter((item) => item.type === "devDependency")
+        packageItem.dependencies.filter((item) => item.type === "devDependency")
       );
     }
     return packageItem;
