@@ -5,25 +5,28 @@ import chalk from "chalk";
 import semver from "semver";
 
 import {
-  IMonorepoHelperConfig,
+  IMonorepoHelperCoreConfig,
   IPackageItem,
   IRawPackageItem,
   IDependenciesObjectData,
   IVersionCheckDependencyItem,
 } from "@monohelper/types";
-import { getDependenciesArrayData } from "./utils";
+
+import { getDependenciesArrayData, filterAndSetManualLockVersionByGlobalConfig } from "./utils";
 import { pnpmLockFileParser } from "./lockFileParser/pnpm";
 
 const supportedPackageManager = ["pnpm"];
 
 export class MonorepoHelperCore {
-  config: IMonorepoHelperConfig;
+  rootDirectoryPath: string;
+  config: IMonorepoHelperCoreConfig;
   packages: IPackageItem[] = [];
   dependencies: IVersionCheckDependencyItem[] = [];
   dependenciesObjectData: IDependenciesObjectData = {};
   isPackageManagerSupport = false;
 
-  constructor(public rootDirectoryPath: string, config: IMonorepoHelperConfig) {
+  constructor(rootDirectoryPath: string, config: IMonorepoHelperCoreConfig) {
+    this.rootDirectoryPath = rootDirectoryPath;
     this.config = { ...config, lockFileDirectoryPath: config.lockFileDirectoryPath || rootDirectoryPath };
     if (supportedPackageManager.includes(this.config.packageManager)) {
       this.isPackageManagerSupport = true;
@@ -83,7 +86,8 @@ export class MonorepoHelperCore {
         isRoot,
         dependcies: [...dependencies, ...devDependencies, ...peerDependencies],
       };
-      return packgeItem;
+
+      return filterAndSetManualLockVersionByGlobalConfig(packgeItem, this.config);
     });
     const data = await Promise.all(dataPromises);
     this.packages = data.filter(Boolean) as IPackageItem[];
@@ -119,45 +123,52 @@ export class MonorepoHelperCore {
           return acc;
         }, {});
 
-      return acc.concat(
-        packageItem.dependcies
-          .filter((item) => item.type !== "peerDependency")
-          .sort((item) => {
-            if (item.type === "dependency") {
-              return -1;
-            } else {
-              return 1;
-            }
-          })
-          .reduce<IVersionCheckDependencyItem[]>((acc, cur) => {
-            if (cur.type === "devDependency") {
-              const index = acc.findIndex((item) => item.name === cur.name);
-              if (index > -1) {
-                // record dependency dev version
-                if (acc[index].version !== cur.version) {
-                  acc[index].devDependencyVersion = cur.version;
-                }
-                return acc;
+      const packageItemDependencies = packageItem.dependcies
+        .filter((item) => {
+          let flag = true;
+          if (item.type === "peerDependency") {
+            flag = false;
+            return flag;
+          }
+          return flag;
+        })
+        .sort((item) => {
+          if (item.type === "dependency") {
+            return -1;
+          } else {
+            return 1;
+          }
+        })
+        .reduce<IVersionCheckDependencyItem[]>((acc, cur) => {
+          if (cur.type === "devDependency") {
+            const index = acc.findIndex((item) => item.name === cur.name);
+            if (index > -1) {
+              // record dependency dev version
+              if (acc[index].version !== cur.version) {
+                acc[index].devDependencyVersion = cur.version;
               }
+              return acc;
             }
+          }
 
-            // record dependency peer version
-            const peerDependencyVersion = peerDependenciesData[cur.name];
+          // record dependency peer version
+          const peerDependencyVersion = peerDependenciesData[cur.name];
 
-            acc.push({
-              ...cur,
-              peerDependencyVersion,
-              package: {
-                isRoot: packageItem.isRoot,
-                name: packageItem.name,
-                path: packageItem.path,
-                relativeName: packageItem.relativeName,
-                version: packageItem.version,
-              },
-            });
-            return acc;
-          }, [])
-      );
+          acc.push({
+            ...cur,
+            peerDependencyVersion,
+            package: {
+              isRoot: packageItem.isRoot,
+              name: packageItem.name,
+              path: packageItem.path,
+              relativeName: packageItem.relativeName,
+              version: packageItem.version,
+            },
+          });
+          return acc;
+        }, []);
+
+      return acc.concat(packageItemDependencies);
     }, []);
 
     // group same dependency by different package
@@ -193,14 +204,10 @@ export class MonorepoHelperCore {
      */
     dependencyNames?: string[];
     /**
-     * @description the package you want to include when check
-     * @default all
+     * dependency name matched exactly
+     * @default true
      */
-    includePackageNames?: string[];
-    /**
-     * @description the package you want to exclude when check
-     */
-    excludePackageNames?: string[];
+    exact?: boolean;
   }) {
     if (!this.checkPackageManagerIsSupport()) {
       return;
@@ -209,61 +216,26 @@ export class MonorepoHelperCore {
     const finalOptions = {
       silent: false,
       onlyDifferentVersion: true,
+      exact: true,
       ...options,
     };
 
     let dependenciesObjectData = this.dependenciesObjectData;
 
-    const { dependencyNames, includePackageNames, excludePackageNames } = finalOptions;
+    const { dependencyNames, exact } = finalOptions;
 
-    // filter dependency and package
-    if (dependencyNames?.length || includePackageNames?.length || excludePackageNames?.length) {
+    // filter dependency
+    if (dependencyNames?.length) {
       dependenciesObjectData = Object.keys(dependenciesObjectData).reduce<IDependenciesObjectData>((acc, key) => {
         let curDependency = dependenciesObjectData[key];
 
         // filter dependency
         if (dependencyNames?.length) {
-          if (dependencyNames?.some((name) => key.includes(name))) {
+          if (dependencyNames?.some((name) => (exact ? key === name : key.includes(name)))) {
             acc[key] = curDependency;
           } else {
             return acc;
           }
-        }
-
-        // filter package
-        if (includePackageNames?.length) {
-          const newDependency = curDependency.reduce<IVersionCheckDependencyItem[][]>((acc, cur, curIndex) => {
-            acc[curIndex] = [];
-            cur.map((item) => {
-              if (
-                includePackageNames.some(
-                  (name) => item.package.name.includes(name) || item.package.relativeName.includes(name)
-                )
-              ) {
-                acc[curIndex].push(item);
-              }
-            });
-            return acc;
-          }, []);
-          curDependency = newDependency.filter((item) => item.length);
-          acc[key] = curDependency;
-        }
-
-        // filter package
-        if (excludePackageNames?.length) {
-          const newDependency = curDependency.filter((item) => {
-            if (
-              item
-                .map((item) => item.package)
-                .some((temp) =>
-                  excludePackageNames.some((name) => temp.name.includes(name) || temp.relativeName.includes(name))
-                )
-            ) {
-              return false;
-            }
-            return true;
-          });
-          acc[key] = newDependency;
         }
 
         return acc;
@@ -290,13 +262,9 @@ export class MonorepoHelperCore {
     );
 
     if (!finalOptions.silent) {
-      finalOptions.onlyDifferentVersion
-        ? this.printCheckResult(multipleVersionDependenciesObjectData, {
-            isMultipleVersionCheck: true,
-          })
-        : this.printCheckResult(dependenciesObjectData, {
-            isMultipleVersionCheck: false,
-          });
+      this.printCheckResult(multipleVersionDependenciesObjectData, {
+        isMultipleVersionCheck: finalOptions.onlyDifferentVersion,
+      });
     }
 
     return {
@@ -309,7 +277,6 @@ export class MonorepoHelperCore {
      * @default false
      */
     silent?: boolean;
-    excludePackageName?: string[];
     dependencyName: string;
     dependencyVersion: string;
     /**
@@ -323,7 +290,7 @@ export class MonorepoHelperCore {
       return;
     }
 
-    const { silent, excludePackageName, dependencyName, dependencyVersion, peerVersion } = {
+    const { silent, dependencyName, dependencyVersion, peerVersion } = {
       silent: false,
       ...options,
     };
@@ -338,9 +305,6 @@ export class MonorepoHelperCore {
         } else if (item.peerDependencyVersion && item.peerDependencyVersion !== finalPeerVersion) {
           flag = true;
         }
-      }
-      if (flag && excludePackageName?.length) {
-        flag = !excludePackageName.some((name) => item.package.name === name);
       }
       return flag;
     });
@@ -513,17 +477,3 @@ export class MonorepoHelperCore {
     return true;
   }
 }
-
-// TODO: test code
-// (async () => {
-//   const monorepoHelper = new MonorepoHelperCore({
-//     rootDirectoryPath: path.resolve(__dirname, "../../../"),
-//     packageManager: "pnpm",
-//   });
-//   await monorepoHelper.init();
-//   monorepoHelper.checkVersion();
-//   // await monorepoHelper.lockVersion({
-//   //   dependencyName: "glob",
-//   //   dependencyVersion: "^8.0.3",
-//   // });
-// })();

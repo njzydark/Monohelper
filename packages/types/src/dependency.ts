@@ -16,6 +16,13 @@ export interface IDependencyItem {
   name: string;
   version: string;
   lockVersion?: string;
+  /**
+   * manual lock version by global config
+   */
+  manualLockVersion?: {
+    version?: string;
+    peerDependencyVersion?: string;
+  };
   type: DependencyType;
   children?: {
     name: string;

@@ -1,5 +1,5 @@
 import { readFile, writeFile } from "fs/promises";
-import { IMonorepoHelperConfig } from "@monohelper/types";
+import { IMonorepoHelperCoreConfig } from "@monohelper/types";
 import originDefaultConfig from "./default.json";
 import { join } from "path";
 import { homedir } from "os";
@@ -15,7 +15,7 @@ export const initConfig = async (configPath: string, config = originDefaultConfi
 
 export const getConfig = async (configPath: string) => {
   const str = await readFile(join(configPath, configName), "utf-8");
-  const config = JSON.parse(str) as IMonorepoHelperConfig;
+  const config = JSON.parse(str) as IMonorepoHelperCoreConfig;
   return config;
 };
 

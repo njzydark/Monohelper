@@ -1,14 +1,40 @@
-export interface IMonorepoHelperConfig {
+export interface IncludeOrExcludePackage {
+  [packageName: string]: "*" | string[];
+}
+
+export interface IMonorepoHelperCoreConfig {
   /**
    * @default same as rootDirectoryPath
    */
   lockFileDirectoryPath?: string;
   packageManager: "pnpm";
-  excludeDependencies?: {
+  /**
+   * filter by include dependencies
+   */
+  includeDependencies?: {
+    /**
+     * all packages
+     */
     all?: string[];
-    package?: { [packageName: string]: "*" | string[] };
+    package?: IncludeOrExcludePackage;
   };
+  /**
+   * filter by exclude dependencies
+   */
+  excludeDependencies?: {
+    /**
+     * all packages
+     */
+    all?: string[];
+    package?: IncludeOrExcludePackage;
+  };
+  /**
+   * manual lock dependencies
+   */
   lockDependencies?: {
+    /**
+     * all packages
+     */
     all?: {
       [dependencyName: string]: string;
     };
