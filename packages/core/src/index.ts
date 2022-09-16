@@ -12,6 +12,7 @@ import {
   IAllDependency,
   IAllDependencyGroupedByVersion,
   IDependencyGroupedByVersionItem,
+  IDependencyItem,
 } from "@monohelper/types";
 
 import { getDependenciesArrayData, filterAndSetManualLockVersionByGlobalConfig } from "./utils";
@@ -173,7 +174,7 @@ export class MonorepoHelperCore {
       return acc.concat(packageItemDependencies);
     }, []);
 
-    // group same dependency by different package
+    // group same dependency by different version
     this.allDependencyGroupedByVersion = this.allDependency.reduce<IAllDependencyGroupedByVersion>((acc, cur) => {
       if (!acc[cur.name]) {
         acc[cur.name] = [[cur]];
@@ -266,9 +267,12 @@ export class MonorepoHelperCore {
     }, {});
 
     if (!finalOptions.silent) {
-      this.printCheckResult(allDependencyGroupedByOnlyDifferentVersion, {
-        isMultipleVersionCheck: finalOptions.onlyDifferentVersion,
-      });
+      this.printCheckResult(
+        finalOptions.onlyDifferentVersion ? allDependencyGroupedByOnlyDifferentVersion : allDependencyGroupedByVersion,
+        {
+          onlyDifferentVersion: finalOptions.onlyDifferentVersion,
+        }
+      );
     }
 
     return {
@@ -347,12 +351,12 @@ export class MonorepoHelperCore {
   printCheckResult(
     data: IAllDependencyGroupedByVersion,
     {
-      isMultipleVersionCheck,
+      onlyDifferentVersion,
     }: {
-      isMultipleVersionCheck: boolean;
+      onlyDifferentVersion: boolean;
     }
   ) {
-    if (isMultipleVersionCheck) {
+    if (onlyDifferentVersion) {
       const count = Object.keys(data).length;
       if (count === 0) {
         console.log(chalk.green("🎉 Dependencies are all the same version!"));
@@ -399,7 +403,7 @@ export class MonorepoHelperCore {
           console.log(Symbols.VERTICAL);
         }
       });
-      if (isMultipleVersionCheck) {
+      if (onlyDifferentVersion) {
         this.getSuggestions({ data: curItem });
       }
     });
@@ -414,66 +418,129 @@ export class MonorepoHelperCore {
     let suggestions: string[] = [];
 
     const lockVersions = data.map((item) => item[0]?.lockVersion?.split("_")[0]).filter(Boolean) as string[];
-    const maxLockVersion = semver.maxSatisfying(lockVersions, "*");
-
-    if (maxLockVersion) {
-      suggestions.push(`lock ${chalk.blue(base.name)} version to ${chalk.blue(maxLockVersion)}`);
-    }
-
     const uniqLockVersions = Array.from(new Set(lockVersions));
+
+    const maxLockVersion = semver.maxSatisfying(lockVersions, "*");
+    const minLockVersion = semver.minSatisfying(lockVersions, "*");
+
     const isExistsSameLockVersion = lockVersions.length !== uniqLockVersions.length;
+
+    let differentVersionPeerDependencies: {
+      [dependencyName: string]: IDependencyItem[];
+    } = {};
+
+    let transitivePeerDependencies: {
+      [dependencyName: string]: IDependencyItem[];
+    } = {};
 
     if (isExistsSameLockVersion) {
       const differentVersionDependencies = data.map((item) => item[0]);
-      const transitivePeerDependencies = differentVersionDependencies.reduce<{
-        [key: string]: {
-          name: string;
-          lockVersion?: string;
-          version?: string;
-          package?: Omit<IPackageItem, "dependencies">;
-        }[];
-      }>((acc, item) => {
-        item.transitivePeerDependencies?.forEach((name) => {
-          const cur = this.allDependency.find(
-            (temp) => temp.name === name && temp.package?.name === item.package?.name
-          );
-          const temp = { name, version: cur?.version, lockVersion: cur?.lockVersion, package: item.package };
-          if (acc[name]) {
-            acc[name].push(temp);
-          } else {
-            acc[name] = [temp];
-          }
-        });
-        return acc;
-      }, {});
-      const keys = Object.keys(transitivePeerDependencies);
-      if (keys.length) {
-        console.log("");
-        console.log(chalk.blue("TransitivePeerDependencies"));
-        console.log("");
-        keys.forEach((key) => {
-          console.log(key);
-          const curTransitivePeerDependency = transitivePeerDependencies[key];
-          curTransitivePeerDependency.forEach((item) => {
-            console.log(`- ${item.package?.name} ${item.lockVersion || "unknown"}`);
+
+      differentVersionPeerDependencies = differentVersionDependencies.reduce<typeof differentVersionPeerDependencies>(
+        (acc, item) => {
+          item.children?.forEach((child) => {
+            if (child.version && child.type === "peerDependency") {
+              const cur = this.allDependency.find(
+                (temp) => temp.name === child.name && temp.package?.name === item.package?.name
+              );
+              if (!cur) {
+                return acc;
+              }
+              if (acc[child.name]) {
+                acc[child.name].push(cur);
+              } else {
+                acc[child.name] = [cur];
+              }
+            }
           });
-          const lockVersions = curTransitivePeerDependency
-            .map((item) => item.lockVersion?.split("_")[0])
-            .filter(Boolean) as string[];
+          return acc;
+        },
+        {}
+      );
+
+      transitivePeerDependencies = differentVersionDependencies.reduce<typeof transitivePeerDependencies>(
+        (acc, item) => {
+          item.transitivePeerDependencies?.forEach((name) => {
+            const cur = this.allDependency.find(
+              (temp) => temp.name === name && temp.package?.name === item.package?.name
+            );
+            if (!cur) {
+              return acc;
+            }
+            if (acc[name]) {
+              acc[name].push(cur);
+            } else {
+              acc[name] = [cur];
+            }
+          });
+          return acc;
+        },
+        {}
+      );
+    }
+
+    if (maxLockVersion && minLockVersion && maxLockVersion !== minLockVersion) {
+      suggestions.push(
+        `lock ${chalk.blue(base.name)} version to ${chalk.blue(minLockVersion)} or ${chalk.blue(maxLockVersion)}`
+      );
+    }
+
+    const changeSuggestionsAndPrintByDependencyObjectData = (
+      data: { [dependencyName: string]: IDependencyItem[] },
+      name: string
+    ) => {
+      const keys = Object.keys(data);
+      if (keys.length) {
+        if (!silent) {
+          console.log("");
+          console.log(chalk.blue(`${name}:`));
+          console.log("");
+        }
+
+        keys.forEach((key) => {
+          !silent && console.log(key);
+          const cur = data[key];
+          !silent &&
+            cur.forEach((item) => {
+              console.log(`  - ${item.package?.name} (${item.package?.relativeName}) ${item.lockVersion || "unknown"}`);
+            });
+
+          const lockVersions = cur.map((item) => item.lockVersion?.split("_")[0]).filter(Boolean) as string[];
+          const minLockVersion = semver.minSatisfying(lockVersions, "*");
           const maxLockVersion = semver.maxSatisfying(lockVersions, "*");
-          if (maxLockVersion) {
-            suggestions.push(`lock ${chalk.blue(key)} version to ${chalk.blue(maxLockVersion)}`);
+          if (maxLockVersion && minLockVersion && maxLockVersion !== minLockVersion) {
+            suggestions.push(
+              `lock ${chalk.blue(key)} version to ${chalk.blue(minLockVersion)} or ${chalk.blue(maxLockVersion)}`
+            );
           }
         });
       }
+    };
+
+    changeSuggestionsAndPrintByDependencyObjectData(
+      differentVersionPeerDependencies,
+      "DifferentVersionPeerDependencies"
+    );
+    changeSuggestionsAndPrintByDependencyObjectData(transitivePeerDependencies, "TransitivePeerDependencies");
+
+    if (!silent && suggestions.length) {
+      console.log("");
+      console.log(chalk.green("Suggestions:"));
+      console.log("");
+      suggestions.forEach((item) => {
+        console.log(`- ${item}`);
+      });
     }
 
-    console.log("");
-    console.log(chalk.blue("Suggestions:"));
-    console.log("");
-    suggestions.forEach((item) => {
-      console.log(`- ${item}`);
-    });
+    return {
+      isExistsSameLockVersion,
+      uniqLockVersions,
+      maxLockVersion,
+      minLockVersion,
+      differentVersionPeerDependencies,
+      transitivePeerDependencies,
+      suggestions,
+    };
   }
 
   private checkPackageManagerIsSupport() {
