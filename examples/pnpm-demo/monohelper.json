@@ -1,12 +1,38 @@
 {
   "packageManager": "pnpm",
   "lockFileDirectoryPath": "./",
-  "excludeDependencies": {
-    "all": [],
-    "package": {}
+  "dependencies": {
+    "filter": {
+      "exclude": {
+        "common": [
+          "react"
+        ],
+        "package": {
+          "packages/foo": [
+            "react-dom"
+          ]
+        }
+      }
+    },
+    "lock": {
+      "common": {
+        "react": "16.14.0"
+      },
+      "package": {
+        "packages/bar": {
+          "react-dom": "17"
+        }
+      }
+    }
   },
   "lockDependencies": {
-    "all": {},
-    "package": {}
+    "all": {
+      "react": "16.14.0"
+    },
+    "package": {
+      "packages/bar": {
+        "react-dom": "17"
+      }
+    }
   }
 }

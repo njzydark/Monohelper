@@ -24,7 +24,16 @@ export interface IDependencyItem {
   manualLockVersion?: {
     version?: string;
     peerDependencyVersion?: string;
+    isDifferentWithRawDependency?: boolean;
+    isDifferentWithRawPeerDependency?: boolean;
   };
+  checkResult?: {
+    canAutoFix?: boolean;
+    isPeerDependency?: boolean;
+    lockVersion: string;
+    errorMessage: string;
+    fixMessage: string;
+  }[];
   type: DependencyType;
   children?: {
     name: string;
@@ -56,3 +65,13 @@ export interface IPackageItem {
 }
 
 export type IAllPackage = IPackageItem[];
+
+export type IDependencyCheckSuggestionItemType =
+  | "normal"
+  | "differentPeerDependencyVersion"
+  | "transitivePeerDependencies";
+
+export interface IDependencyCheckSuggestionItem {
+  type: IDependencyCheckSuggestionItemType;
+  message: string;
+}

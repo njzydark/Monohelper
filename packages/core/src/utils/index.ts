@@ -1,4 +1,13 @@
-import { IDependencyItem, IMonorepoHelperCoreConfig, IPackageItem, IRawDependencies } from "@monohelper/types";
+import {
+  IAllDependency,
+  IAllDependencyGroupedByVersion,
+  IDependencyGroupedByVersionItem,
+  IDependencyItem,
+  IMonorepoHelperCoreConfig,
+  IncludeOrExcludePackage,
+  IPackageItem,
+  IRawDependencies,
+} from "@monohelper/types";
 
 /**
  * transform object raw dependencies to array data
@@ -14,66 +23,163 @@ export const getDependenciesArrayData = (rawDependencies: IRawDependencies = {},
 };
 
 /**
- * filter and set manual lock version data by global config
+ * set dependency item manual lock version data by config
  */
-export const filterAndSetManualLockVersionByGlobalConfig = (
-  packageItem: IPackageItem,
-  config: Pick<IMonorepoHelperCoreConfig, "excludeDependencies" | "includeDependencies" | "lockDependencies">
+export const setDependencyItemManualLockVersionByConfig = (
+  dependencyItem: IDependencyItem,
+  config: Pick<IMonorepoHelperCoreConfig, "lockDependencies">
 ) => {
-  const { includeDependencies, excludeDependencies, lockDependencies } = config;
+  const { lockDependencies } = config;
+
+  const packageInfo = dependencyItem.package!;
+
+  // get manual version lock data
+  const curPackageDependenciesLockVersionData =
+    lockDependencies?.package?.[packageInfo.name] || lockDependencies?.package?.[packageInfo.relativeName] || {};
+
+  const finalDependenciesLockVersionData = { ...lockDependencies?.all, ...curPackageDependenciesLockVersionData };
+
+  const curManualLockVersion = finalDependenciesLockVersionData[dependencyItem.name];
+
+  if (!curManualLockVersion) {
+    return dependencyItem;
+  }
+
+  if (typeof curManualLockVersion === "string") {
+    const isDifferentWithRawDependency = dependencyItem.version !== curManualLockVersion;
+    const isDifferentWithRawPeerDependency =
+      !!dependencyItem.peerDependencyVersion && dependencyItem.peerDependencyVersion !== curManualLockVersion;
+    dependencyItem.manualLockVersion = {
+      version: curManualLockVersion,
+      isDifferentWithRawDependency,
+      isDifferentWithRawPeerDependency,
+    };
+  }
+  if (Array.isArray(curManualLockVersion) && curManualLockVersion.length > 0) {
+    const version = curManualLockVersion[0];
+    const peerDependencyVersion = curManualLockVersion[1] || curManualLockVersion[0];
+    const isDifferentWithRawDependency = dependencyItem.version !== version;
+    const isDifferentWithRawPeerDependency =
+      !!dependencyItem.peerDependencyVersion && dependencyItem.peerDependencyVersion !== peerDependencyVersion;
+    dependencyItem.manualLockVersion = {
+      version,
+      peerDependencyVersion,
+      isDifferentWithRawDependency,
+      isDifferentWithRawPeerDependency,
+    };
+  }
+  return dependencyItem;
+};
+
+/**
+ * check dependency item is should include by include and exclude config
+ */
+export const isDependencyItemNeedInclude = (
+  dependencyItem: IDependencyItem,
+  config: Pick<IMonorepoHelperCoreConfig, "excludeDependencies" | "includeDependencies">
+) => {
+  const { includeDependencies, excludeDependencies } = config;
 
   const isNeedInclude = includeDependencies?.all?.length || Object.keys(includeDependencies?.package || {}).length;
   const isNeedExclude = excludeDependencies?.all?.length || Object.keys(excludeDependencies?.package || {}).length;
 
-  // filter by include
-  const curPackageIncludeDependencies =
-    includeDependencies?.package?.[packageItem.name] || includeDependencies?.package?.[packageItem.relativeName] || [];
+  const getFinalFilteredDependency = (
+    dependencyItem: IDependencyItem,
+    data?: {
+      /**
+       * all packages
+       */
+      all?: string[];
+      package?: IncludeOrExcludePackage;
+    }
+  ) => {
+    const curPackageDependencies =
+      data?.package?.[dependencyItem.package?.name || ""] ||
+      data?.package?.[dependencyItem.package?.relativeName || ""] ||
+      [];
 
-  const finalIncludeDependencies =
-    curPackageIncludeDependencies === "*"
-      ? "*"
-      : (includeDependencies?.all || []).concat(curPackageIncludeDependencies);
+    return curPackageDependencies === "*" ? "*" : (data?.all || []).concat(curPackageDependencies);
+  };
 
+  let filteredDependency = [dependencyItem];
+
+  const finalIncludeDependencies = getFinalFilteredDependency(dependencyItem, includeDependencies);
   if (finalIncludeDependencies !== "*" && isNeedInclude) {
-    packageItem.dependencies = packageItem.dependencies.filter((item) => finalIncludeDependencies.includes(item.name));
+    filteredDependency = filteredDependency.filter((item) => finalIncludeDependencies.includes(item.name));
   }
 
-  // filter by exclude
-  const curPackageExcludeDependencies =
-    excludeDependencies?.package?.[packageItem.name] || excludeDependencies?.package?.[packageItem.relativeName] || [];
-
-  const finalExcludeDependencies =
-    curPackageExcludeDependencies === "*"
-      ? "*"
-      : (excludeDependencies?.all || []).concat(curPackageExcludeDependencies);
-
+  const finalExcludeDependencies = getFinalFilteredDependency(dependencyItem, excludeDependencies);
   if (finalExcludeDependencies === "*") {
-    packageItem.dependencies = [];
+    filteredDependency = [];
   } else if (isNeedExclude) {
-    packageItem.dependencies = packageItem.dependencies.filter((item) => !finalExcludeDependencies.includes(item.name));
+    filteredDependency = filteredDependency.filter((item) => !finalExcludeDependencies.includes(item.name));
   }
 
-  // get manual version lock data
-  const curPackageDependenciesLockVersionData =
-    lockDependencies?.package?.[packageItem.name] || lockDependencies?.package?.[packageItem.relativeName] || {};
+  return filteredDependency.length === 1;
+};
 
-  const finalDependenciesLockVersionData = { ...lockDependencies?.all, ...curPackageDependenciesLockVersionData };
+const handleCurDependencyItemGroupedByVersion = (
+  data: IDependencyGroupedByVersionItem,
+  dependencyItem: IDependencyItem
+) => {
+  if (!data) {
+    data = [[dependencyItem]];
+  } else {
+    const index = data.findIndex((item) => {
+      const base = item[0];
+      return base.lockVersion && base.lockVersion === dependencyItem.lockVersion;
+    });
+    if (index > -1) {
+      data[index].push(dependencyItem);
+    } else {
+      data.push([dependencyItem]);
+    }
+  }
+  return data;
+};
 
-  packageItem.dependencies = packageItem.dependencies.map((item) => {
-    const curManualLockVersion = finalDependenciesLockVersionData[item.name];
-    if (typeof curManualLockVersion === "string") {
-      item.manualLockVersion = {
-        version: curManualLockVersion,
-      };
-    }
-    if (Array.isArray(curManualLockVersion)) {
-      item.manualLockVersion = {
-        version: curManualLockVersion[0],
-        peerDependencyVersion: curManualLockVersion[1],
-      };
-    }
-    return item;
+type GetDependencyItemGroupedByVersionOptions = {
+  dependencyItem: IDependencyItem;
+  allDependency: IAllDependency;
+  config: Pick<IMonorepoHelperCoreConfig, "excludeDependencies" | "includeDependencies">;
+};
+
+export const getDependencyItemGroupedByVersion = ({
+  dependencyItem,
+  allDependency,
+  config,
+}: GetDependencyItemGroupedByVersionOptions) => {
+  const data = allDependency.filter((cur) => {
+    return cur.name === dependencyItem.name && isDependencyItemNeedInclude(cur, config);
   });
 
-  return packageItem;
+  return data.reduce<IDependencyGroupedByVersionItem>(handleCurDependencyItemGroupedByVersion, []);
+};
+
+export const getAllDependencyGroupedByVersion = (
+  allDependency: IAllDependency,
+  config: Pick<IMonorepoHelperCoreConfig, "excludeDependencies" | "includeDependencies">
+) => {
+  // group same dependency by different version
+  return allDependency.reduce<{
+    allDependencyGroupedByVersion: IAllDependencyGroupedByVersion;
+    allDependencyGroupedByVersionAndFiltered: IAllDependencyGroupedByVersion;
+  }>(
+    (acc, cur) => {
+      acc.allDependencyGroupedByVersion[cur.name] = handleCurDependencyItemGroupedByVersion(
+        acc.allDependencyGroupedByVersion[cur.name],
+        cur
+      );
+
+      if (isDependencyItemNeedInclude(cur, config)) {
+        acc.allDependencyGroupedByVersionAndFiltered[cur.name] = handleCurDependencyItemGroupedByVersion(
+          acc.allDependencyGroupedByVersionAndFiltered[cur.name],
+          cur
+        );
+      }
+
+      return acc;
+    },
+    { allDependencyGroupedByVersion: {}, allDependencyGroupedByVersionAndFiltered: {} }
+  );
 };

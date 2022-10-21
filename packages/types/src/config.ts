@@ -8,6 +8,34 @@ export interface IMonorepoHelperCoreConfig {
    */
   lockFileDirectoryPath?: string;
   packageManager: "pnpm";
+  dependencies?: {
+    filter: {
+      /**
+       * filter by include dependencies
+       */
+      include?: {
+        common?: string[];
+        package?: IncludeOrExcludePackage;
+      };
+      /**
+       * filter by exclude dependencies
+       */
+      exclude?: {
+        common?: string[];
+        package?: IncludeOrExcludePackage;
+      };
+    };
+    lock: {
+      common?: {
+        [dependencyName: string]: string;
+      };
+      package?: {
+        [packageName: string]: {
+          [dependencyName: string]: string | [string, string];
+        };
+      };
+    };
+  };
   /**
    * filter by include dependencies
    */
@@ -36,7 +64,7 @@ export interface IMonorepoHelperCoreConfig {
      * all packages
      */
     all?: {
-      [dependencyName: string]: string;
+      [dependencyName: string]: string | [string, string];
     };
     package?: {
       [packageName: string]: {
