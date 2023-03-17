@@ -2,7 +2,7 @@
   "name": "@monohelper/cli",
   "cliName": "monohelper",
   "version": "0.1.0",
-  "description": "",
+  "description": "A tool to to check monorepo package version consistency",
   "bin": {
     "monohelper": "dist/index.js"
   },

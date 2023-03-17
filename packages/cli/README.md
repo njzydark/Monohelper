@@ -1,17 +1,8 @@
-# Monohelper
+# @monohelper/cli
 
-A tool to enhance the monorepo development experience
+A tool to to check monorepo package version consistency
 
-## Features
-
-- Provide cli tool to check package version consistency
-- Provide vscode extension to enhance the local development experience
-
-## Attention
-
-Currently only support `pnpm`
-
-## Cli
+## Usage
 
 ```bash
 npx @monohelper/cli -h
@@ -57,9 +48,3 @@ glob
     └──@monohelper/core (packages/core)
          dependency: ^8.0.3 
 ```
-
-## Roadmap
-
-- [x] check and lock version support global config
-- [ ] check version suggestions
-- [ ] release vscode extension and support display dependency check result in problems pane
