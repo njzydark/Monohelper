@@ -117,7 +117,11 @@ export const handleCurDependencyItemGroupedByVersion = (
   data: IDependencyGroupedByVersionItem,
   dependencyItem: IDependencyItem
 ) => {
-  if (!data) {
+  if (dependencyItem.version.startsWith("workspace:")) {
+    return [];
+  }
+
+  if (!data?.length) {
     data = [[dependencyItem]];
   } else {
     const index = data.findIndex((item) => {

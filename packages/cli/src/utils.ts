@@ -1,5 +1,7 @@
 import { IAllDependencyGroupedByVersion, IDependencyGroupedByVersionItem } from "@monohelper/types";
 import chalk from "chalk";
+import { existsSync } from "fs";
+import path from "path";
 
 type PrintDependencyGroupedByVersionDataParams = {
   data: IAllDependencyGroupedByVersion;
@@ -49,20 +51,23 @@ export const printDependencyGroupedByVersionData = ({
       items.forEach((item, itemIndex) => {
         const isItemPackageLast = itemIndex === items.length - 1;
         const manualLockRawVersionCheckMessage = item.manualLockVersion?.isDifferentWithRawDependency
-          ? `${chalk.yellow(item.manualLockVersion?.version)}`
+          ? `${chalk.grey("lock dependency: ")}${chalk.yellow(item.manualLockVersion?.version)}`
           : "";
         const manualLockRawPeerVersionCheckMessage = item.manualLockVersion?.isDifferentWithRawPeerDependency
-          ? `${chalk.yellow(item.manualLockVersion?.peerDependencyVersion)}`
+          ? `${chalk.grey("lock peerDependency: ")}${chalk.yellow(item.manualLockVersion?.peerDependencyVersion)}`
           : "";
         console.log(`${isLast ? Symbols.INDENT : Symbols.VERTICAL}${Symbols.VERTICAL}`);
         console.log(
           `${isLast ? Symbols.INDENT : Symbols.VERTICAL}${isItemPackageLast ? Symbols.LAST_BRANCH : Symbols.BRANCH}${
             item.package?.name
-          } (${item.package?.isRoot ? "root" : item.package?.relativeName}) ${
-            item.version
-          } ${manualLockRawVersionCheckMessage} ${
-            item.peerDependencyVersion || ""
-          } ${manualLockRawPeerVersionCheckMessage}`
+          } (${item.package?.isRoot ? "root" : item.package?.relativeName})`
+        );
+        console.log(
+          `${isLast ? Symbols.INDENT : Symbols.VERTICAL}${
+            isItemPackageLast ? Symbols.INDENT : Symbols.VERTICAL
+          } ${chalk.grey("dependency: ")}${item.version} ${manualLockRawVersionCheckMessage} ${
+            item.peerDependencyVersion ? chalk.grey("peerDependency: ") : ""
+          }${item.peerDependencyVersion || ""} ${manualLockRawPeerVersionCheckMessage}`
         );
       });
       if (!isLast) {
@@ -71,4 +76,9 @@ export const printDependencyGroupedByVersionData = ({
     });
     onItemFinish?.(curItem, rootIndex);
   });
+};
+
+export const checkIsRush = () => {
+  const rootDirectoryPath = process.cwd();
+  return existsSync(path.join(rootDirectoryPath, "rush.json"));
 };

@@ -10,7 +10,7 @@ import {
 import { getConfig, getConfigDirectoryPath } from "@monohelper/config";
 import { program } from "./program";
 import { merge } from "lodash";
-import { printDependencyGroupedByVersionData } from "./utils";
+import { checkIsRush, printDependencyGroupedByVersionData } from "./utils";
 import chalk from "chalk";
 
 type InitMonorepoHelperOptions = {
@@ -26,7 +26,10 @@ const initMonorepoHelper = async ({ includePackage, excludePackage }: InitMonore
     ? await getConfig(configRootPath)
     : undefined;
 
+  const isRush = checkIsRush();
+
   const cliConfig = {
+    lockFileDirectoryPath: isRush ? "./common/config/rush" : "./",
     dependencies: {
       include: {
         package: includePackage?.reduce<NonNullable<IncludeOrExcludeItem["package"]>>((acc, name) => {
