@@ -12,34 +12,49 @@ import {
   IAllDependency,
   IAllDependencyGroupedByVersion,
   IDependencyGroupedByVersionItem,
+  PackageManager,
   IDependencyItem,
 } from "@monohelper/types";
 
-import { getDependenciesArrayData, filterAndSetManualLockVersionByGlobalConfig } from "./utils";
+import {
+  getDependenciesArrayData,
+  getAllDependencyGroupedByVersion,
+  setDependencyItemManualLockVersionByConfig,
+  isDependencyItemNeedInclude,
+  handleLockVersion,
+} from "./utils";
+
 import { pnpmLockFileParser } from "./lockFileParser/pnpm";
 
-const supportedPackageManager = ["pnpm"];
+export * from "./utils";
+
+export * from "@monohelper/types";
+
+const supportedPackageManagers: PackageManager[] = ["pnpm"];
 
 export class MonorepoHelperCore {
   rootDirectoryPath: string;
   config: IMonorepoHelperCoreConfig;
   allPackage: IAllPackage = [];
   allDependency: IAllDependency = [];
+  /** grouped only by lockfile version not config's lock version */
   allDependencyGroupedByVersion: IAllDependencyGroupedByVersion = {};
+  /** filter by config (include exclude) */
+  allDependencyGroupedByVersionAndFiltered: IAllDependencyGroupedByVersion = {};
   isPackageManagerSupport = false;
 
   constructor(rootDirectoryPath: string, config: IMonorepoHelperCoreConfig) {
     this.rootDirectoryPath = rootDirectoryPath;
     this.config = { ...config, lockFileDirectoryPath: config.lockFileDirectoryPath || rootDirectoryPath };
-    if (supportedPackageManager.includes(this.config.packageManager)) {
-      this.isPackageManagerSupport = true;
-    }
+    this.isPackageManagerSupport = supportedPackageManagers.includes(this.config.packageManager);
+    return this;
   }
 
   async init() {
     await this.getAllPackageBaseData();
     await this.getAllPackageLockVersionData();
-    this.getAllDependencyAndDifferentVersionData();
+    this.getAllDependencyAndGroupedByVersionData();
+    return this;
   }
 
   async getAllPackageBaseData() {
@@ -90,8 +105,9 @@ export class MonorepoHelperCore {
         dependencies: [...dependencies, ...devDependencies, ...peerDependencies],
       };
 
-      return filterAndSetManualLockVersionByGlobalConfig(packgeItem, this.config);
+      return packgeItem;
     });
+
     const data = await Promise.all(dataPromises);
     this.allPackage = data.filter(Boolean) as IAllPackage;
   }
@@ -112,92 +128,73 @@ export class MonorepoHelperCore {
   }
 
   /**
-   * get all package dependencies array format and object format data
-   * @description
-   * - dependencies: each dependency and package corresponds individually, with no de-duplication grouping
-   * - dependenciesObjectData: group same dependency by different package
+   * get all dependency and grouped by version data
    */
-  getAllDependencyAndDifferentVersionData() {
-    this.allDependency = this.allPackage.reduce<IAllDependency>((acc, packageItem) => {
-      const peerDependenciesData = packageItem.dependencies
-        .filter((item) => item.type === "peerDependency")
-        .reduce<{ [name: string]: string }>((acc, cur) => {
-          acc[cur.name] = cur.version;
-          return acc;
-        }, {});
+  getAllDependencyAndGroupedByVersionData() {
+    this.allDependency = this.allPackage
+      .reduce<IAllDependency>((acc, packageItem) => {
+        const peerDependenciesData = packageItem.dependencies
+          .filter((item) => item.type === "peerDependency")
+          .reduce<{ [name: string]: string }>((acc, cur) => {
+            acc[cur.name] = cur.version;
+            return acc;
+          }, {});
 
-      const packageItemDependencies = packageItem.dependencies
-        .filter((item) => {
-          let flag = true;
-          if (item.type === "peerDependency") {
-            flag = false;
-            return flag;
-          }
-          return flag;
-        })
-        .sort((item) => {
-          if (item.type === "dependency") {
-            return -1;
-          } else {
-            return 1;
-          }
-        })
-        .reduce<IAllDependency>((acc, cur) => {
-          if (cur.type === "devDependency") {
-            const index = acc.findIndex((item) => item.name === cur.name);
-            if (index > -1) {
-              // record dependency dev version
-              if (acc[index].version !== cur.version) {
-                acc[index].devDependencyVersion = cur.version;
-              }
-              return acc;
+        const packageItemDependencies = packageItem.dependencies
+          .filter((item) => item.type !== "peerDependency")
+          .sort((item) => {
+            if (item.type === "dependency") {
+              return -1;
+            } else {
+              return 1;
             }
-          }
+          })
+          .reduce<IAllDependency>((acc, cur) => {
+            if (cur.type === "devDependency") {
+              const index = acc.findIndex((item) => item.name === cur.name);
+              if (index > -1) {
+                /**
+                 * record dependency dev version
+                 * TODO: this case should be able to be deleted
+                 */
+                if (acc[index].version !== cur.version) {
+                  acc[index].devDependencyVersion = cur.version;
+                }
+                return acc;
+              }
+            }
 
-          // record dependency peer version
-          const peerDependencyVersion = peerDependenciesData[cur.name];
+            // record dependency peer version
+            const peerDependencyVersion = peerDependenciesData[cur.name];
 
-          acc.push({
-            ...cur,
-            peerDependencyVersion,
-            package: {
-              isRoot: packageItem.isRoot,
-              name: packageItem.name,
-              path: packageItem.path,
-              relativeName: packageItem.relativeName,
-              version: packageItem.version,
-            },
-          });
-          return acc;
-        }, []);
+            acc.push({
+              ...cur,
+              peerDependencyVersion,
+              package: {
+                isRoot: packageItem.isRoot,
+                name: packageItem.name,
+                path: packageItem.path,
+                relativeName: packageItem.relativeName,
+                version: packageItem.version,
+              },
+            });
+            return acc;
+          }, []);
 
-      return acc.concat(packageItemDependencies);
-    }, []);
+        return acc.concat(packageItemDependencies);
+      }, [])
+      .map((dependencyItem) => {
+        return setDependencyItemManualLockVersionByConfig(dependencyItem, this.config);
+      });
 
     // group same dependency by different version
-    this.allDependencyGroupedByVersion = this.allDependency.reduce<IAllDependencyGroupedByVersion>((acc, cur) => {
-      if (!acc[cur.name]) {
-        acc[cur.name] = [[cur]];
-      } else {
-        const index = acc[cur.name].findIndex((item) => {
-          const base = item[0];
-          return base.lockVersion && base.lockVersion === cur.lockVersion;
-        });
-        if (index > -1) {
-          acc[cur.name][index].push(cur);
-        } else {
-          acc[cur.name].push([cur]);
-        }
-      }
-      return acc;
-    }, {});
+    const { allDependencyGroupedByVersion, allDependencyGroupedByVersionAndFiltered } =
+      getAllDependencyGroupedByVersion(this.allDependency, this.config);
+    this.allDependencyGroupedByVersion = allDependencyGroupedByVersion;
+    this.allDependencyGroupedByVersionAndFiltered = allDependencyGroupedByVersionAndFiltered;
   }
 
   checkVersion(options?: {
-    /**
-     * @default false
-     */
-    silent?: boolean;
     /**
      * @default true
      */
@@ -223,7 +220,8 @@ export class MonorepoHelperCore {
       ...options,
     };
 
-    let allDependencyGroupedByVersion = this.allDependencyGroupedByVersion;
+    // use filtered data
+    let allDependencyGroupedByVersion = this.allDependencyGroupedByVersionAndFiltered;
 
     const { dependencyNames, exact } = finalOptions;
 
@@ -232,52 +230,86 @@ export class MonorepoHelperCore {
       allDependencyGroupedByVersion = Object.keys(allDependencyGroupedByVersion).reduce<IAllDependencyGroupedByVersion>(
         (acc, key) => {
           let curDependency = allDependencyGroupedByVersion[key];
-
-          // filter dependency
-          if (dependencyNames?.length) {
-            if (dependencyNames?.some((name) => (exact ? key === name : key.includes(name)))) {
-              acc[key] = curDependency;
-            } else {
-              return acc;
-            }
+          if (dependencyNames?.some((name) => (exact ? key === name : key.includes(name)))) {
+            acc[key] = curDependency;
           }
-
           return acc;
         },
         {}
       );
     }
 
+    /**
+     * Only different version refer these case:
+     * - the dependency has multiple different version in lockfile
+     * - the dependency version in package.json is different with the lock version in config(monohelper.json)
+     */
     const allDependencyGroupedByOnlyDifferentVersion = Object.keys(
       allDependencyGroupedByVersion
     ).reduce<IAllDependencyGroupedByVersion>((acc, key) => {
-      const curData = allDependencyGroupedByVersion[key];
-      // check multiple lock version
-      if (allDependencyGroupedByVersion[key].length > 1) {
-        acc[key] = curData;
-        return acc;
+      const allVersionData = allDependencyGroupedByVersion[key];
+
+      let isExistsManualLockVersionDifferent = false;
+
+      const curDataByDifferentVersion = allVersionData.filter((curVersionData) => {
+        // filter by config's lock version
+        const filteredData = curVersionData.filter((item) => {
+          const { manualLockVersion } = item;
+
+          const isManualLockVersionDifferent = Boolean(
+            manualLockVersion?.isDifferentWithRawDependency || manualLockVersion?.isDifferentWithRawPeerDependency
+          );
+
+          if (isManualLockVersionDifferent) {
+            isExistsManualLockVersionDifferent = true;
+          }
+
+          // if lock version is same as raw version, should be exclude
+          return manualLockVersion?.version ? isManualLockVersionDifferent : true;
+        });
+        return filteredData.length > 0;
+      });
+
+      // if length > 1, mean this dependency has different lock versions (lockfile version)
+      // if length === 1 and manual lock version is different with package.json's version, also mean this dependency has different version (lockfile version is same)
+      if (
+        curDataByDifferentVersion.length > 1 ||
+        (curDataByDifferentVersion.length === 1 && isExistsManualLockVersionDifferent)
+      ) {
+        acc[key] = curDataByDifferentVersion;
       }
-      // check multiple version
-      const versions = curData[0]?.map((item) => item.version);
-      const uniqVersions = Array.from(new Set(versions));
-      if (uniqVersions.length > 1) {
-        acc[key] = curData;
+
+      return acc;
+    }, {});
+
+    /**
+     * @description can be auto fix by config's lock version
+     */
+    const allDependencyGroupedByAutoFix = Object.keys(allDependencyGroupedByOnlyDifferentVersion).reduce<{
+      [dependencyName: string]: IDependencyItem[];
+    }>((acc, dependencyName) => {
+      const data = allDependencyGroupedByOnlyDifferentVersion[dependencyName];
+      const res = data.reduce<IDependencyItem[]>((acc, cur) => {
+        const newData = cur.filter(
+          (item) =>
+            item.manualLockVersion?.isDifferentWithRawDependency ||
+            item.manualLockVersion?.isDifferentWithRawPeerDependency
+        );
+        if (newData.length) {
+          acc.push(...newData);
+        }
+        return acc;
+      }, []);
+      if (res.length) {
+        acc[dependencyName] = res;
       }
       return acc;
     }, {});
 
-    if (!finalOptions.silent) {
-      this.printCheckResult(
-        finalOptions.onlyDifferentVersion ? allDependencyGroupedByOnlyDifferentVersion : allDependencyGroupedByVersion,
-        {
-          onlyDifferentVersion: finalOptions.onlyDifferentVersion,
-        }
-      );
-    }
-
     return {
       allDependencyGroupedByVersion,
       allDependencyGroupedByOnlyDifferentVersion,
+      allDependencyGroupedByAutoFix,
     };
   }
 
@@ -291,7 +323,7 @@ export class MonorepoHelperCore {
     /**
      * peerDependency version
      * @description set peerDependency version if it exists
-     * @default ^dependencyVersion
+     * @default dependencyVersion
      */
     peerVersion?: string;
   }) {
@@ -304,9 +336,13 @@ export class MonorepoHelperCore {
       ...options,
     };
 
-    const finalPeerVersion = peerVersion || `^${dependencyVersion}`;
+    const finalPeerVersion = peerVersion || dependencyVersion;
 
     const filteredDependencies = this.allDependency.filter((item) => {
+      if (!isDependencyItemNeedInclude(item, this.config)) {
+        return false;
+      }
+
       let flag = false;
       if (item.name === dependencyName) {
         if (item.version && item.version !== dependencyVersion) {
@@ -318,19 +354,18 @@ export class MonorepoHelperCore {
       return flag;
     });
 
-    const promises = filteredDependencies.map(async (item) => {
-      const path = item.package?.path;
-      const originData = path ? await fs.readFile(path, "utf-8") : null;
-      if (originData && path) {
-        const regx = new RegExp(`(dependencies|devDependencies)([^}]*)("${dependencyName}")(:\\s*)("\\S*")`, "gs");
-        let newData = originData.replace(regx, `$1$2$3$4"${dependencyVersion}"`);
-        if (item.peerDependencyVersion) {
-          const regx = new RegExp(`(peerDependencies)([^}]*)("${dependencyName}")(:\\s*)("\\S*")`, "gs");
-          newData = newData.replace(regx, `$1$2$3$4"${finalPeerVersion}"`);
-        }
-        await fs.writeFile(path, newData);
-      }
-    });
+    const promises = filteredDependencies.map((item) =>
+      handleLockVersion({
+        packagePath: item.package?.path,
+        dependencies: [
+          {
+            name: item.name,
+            version: dependencyVersion,
+            peerVersion: item.peerDependencyVersion ? finalPeerVersion : undefined,
+          },
+        ],
+      })
+    );
 
     await Promise.all(promises);
 
@@ -348,187 +383,73 @@ export class MonorepoHelperCore {
     };
   }
 
-  printCheckResult(
-    data: IAllDependencyGroupedByVersion,
-    {
-      onlyDifferentVersion,
-    }: {
-      onlyDifferentVersion: boolean;
-    }
-  ) {
-    if (onlyDifferentVersion) {
-      const count = Object.keys(data).length;
-      if (count === 0) {
-        console.log(chalk.green("🎉 Dependencies are all the same version!"));
-        return;
-      }
-
-      console.log(chalk.yellow(`Existence of ${count} different version of dependencies: `));
-      console.log("");
-    }
-
-    const Symbols = {
-      BRANCH: "├──",
-      EMPTY: "",
-      INDENT: "    ",
-      LAST_BRANCH: "└──",
-      VERTICAL: "│   ",
-    };
-
-    const rootKeys = Object.keys(data);
-    rootKeys.forEach((key, rootIndex) => {
-      const curItem = data[key];
-      if (curItem.length === 0) {
-        return;
-      }
-      if (rootIndex !== 0) {
-        console.log("");
-      }
-      console.log(chalk.bgWhite(chalk.black(key)));
-      curItem.forEach((items, index) => {
-        const isFirst = index === 0;
-        const isLast = index === curItem.length - 1;
-        isFirst && console.log(Symbols.VERTICAL);
-        console.log(`${isLast ? Symbols.LAST_BRANCH : Symbols.BRANCH} ${items[0].lockVersion || "unknown"}`);
-        items.forEach((item, itemIndex) => {
-          const isItemPackageLast = itemIndex === items.length - 1;
-          console.log(`${isLast ? Symbols.INDENT : Symbols.VERTICAL}${Symbols.VERTICAL}`);
-          console.log(
-            `${isLast ? Symbols.INDENT : Symbols.VERTICAL}${isItemPackageLast ? Symbols.LAST_BRANCH : Symbols.BRANCH}${
-              item.package?.name
-            } (${item.package?.isRoot ? "root" : item.package?.relativeName}) ${item.version}`
-          );
-        });
-        if (!isLast) {
-          console.log(Symbols.VERTICAL);
-        }
-      });
-      if (onlyDifferentVersion) {
-        this.getSuggestions({ data: curItem });
-      }
-    });
-  }
-
-  getSuggestions({ data, silent = false }: { data: IDependencyGroupedByVersionItem; silent?: boolean }) {
+  getSuggestions({ data }: { data: IDependencyGroupedByVersionItem; silent?: boolean }) {
     const base = data?.[0]?.[0];
     if (!base) {
       return;
     }
 
-    let suggestions: string[] = [];
+    // @ts-ignore
+    let suggestions: IDependencyCheckSuggestionItem[] = [];
 
     const lockVersions = data.map((item) => item[0]?.lockVersion?.split("_")[0]).filter(Boolean) as string[];
     const uniqLockVersions = Array.from(new Set(lockVersions));
-
+    const isExistsSameLockVersion = lockVersions.length !== uniqLockVersions.length;
     const maxLockVersion = semver.maxSatisfying(lockVersions, "*");
     const minLockVersion = semver.minSatisfying(lockVersions, "*");
 
-    const isExistsSameLockVersion = lockVersions.length !== uniqLockVersions.length;
-
-    let differentVersionPeerDependencies: {
-      [dependencyName: string]: IDependencyItem[];
-    } = {};
-
-    let transitivePeerDependencies: {
-      [dependencyName: string]: IDependencyItem[];
-    } = {};
+    let differentVersionPeerDependencies: IAllDependencyGroupedByVersion = {};
+    let differentVersionTransitivePeerDependencies: IAllDependencyGroupedByVersion = {};
 
     if (isExistsSameLockVersion) {
-      const differentVersionDependencies = data.map((item) => item[0]);
+      const differentVersionDependencies = data.reduce<IAllDependency>((acc, cur) => {
+        acc.push(...cur);
+        return acc;
+      }, []);
 
-      differentVersionPeerDependencies = differentVersionDependencies.reduce<typeof differentVersionPeerDependencies>(
-        (acc, item) => {
-          item.children?.forEach((child) => {
-            if (child.version && child.type === "peerDependency") {
-              const cur = this.allDependency.find(
-                (temp) => temp.name === child.name && temp.package?.name === item.package?.name
-              );
-              if (!cur) {
-                return acc;
-              }
-              if (acc[child.name]) {
-                acc[child.name].push(cur);
-              } else {
-                acc[child.name] = [cur];
-              }
-            }
-          });
-          return acc;
-        },
-        {}
-      );
-
-      transitivePeerDependencies = differentVersionDependencies.reduce<typeof transitivePeerDependencies>(
-        (acc, item) => {
-          item.transitivePeerDependencies?.forEach((name) => {
+      const allPeerDependency = differentVersionDependencies.reduce<IAllDependency>((acc, item) => {
+        item.children?.forEach((child) => {
+          if (child.version && child.type === "peerDependency") {
             const cur = this.allDependency.find(
-              (temp) => temp.name === name && temp.package?.name === item.package?.name
+              (temp) => temp.name === child.name && temp.package?.name === item.package?.name
             );
             if (!cur) {
               return acc;
             }
-            if (acc[name]) {
-              acc[name].push(cur);
-            } else {
-              acc[name] = [cur];
-            }
-          });
-          return acc;
-        },
-        {}
-      );
+            acc.push(cur);
+          }
+        });
+        return acc;
+      }, []);
+      differentVersionPeerDependencies = getAllDependencyGroupedByVersion(
+        allPeerDependency,
+        this.config
+      ).allDependencyGroupedByVersionAndFiltered;
+
+      const allTransitivePeerDepedency = differentVersionDependencies.reduce<IAllDependency>((acc, item) => {
+        item.transitivePeerDependencies?.forEach((name) => {
+          const cur = this.allDependency.find(
+            (temp) => temp.name === name && temp.package?.name === item.package?.name
+          );
+          if (!cur) {
+            return acc;
+          }
+          acc.push(cur);
+        });
+        return acc;
+      }, []);
+      differentVersionTransitivePeerDependencies = getAllDependencyGroupedByVersion(
+        allTransitivePeerDepedency,
+        this.config
+      ).allDependencyGroupedByVersionAndFiltered;
     }
 
     if (maxLockVersion && minLockVersion && maxLockVersion !== minLockVersion) {
-      suggestions.push(
-        `lock ${chalk.blue(base.name)} version to ${chalk.blue(minLockVersion)} or ${chalk.blue(maxLockVersion)}`
-      );
-    }
-
-    const changeSuggestionsAndPrintByDependencyObjectData = (
-      data: { [dependencyName: string]: IDependencyItem[] },
-      name: string
-    ) => {
-      const keys = Object.keys(data);
-      if (keys.length) {
-        if (!silent) {
-          console.log("");
-          console.log(chalk.blue(`${name}:`));
-          console.log("");
-        }
-
-        keys.forEach((key) => {
-          !silent && console.log(key);
-          const cur = data[key];
-          !silent &&
-            cur.forEach((item) => {
-              console.log(`  - ${item.package?.name} (${item.package?.relativeName}) ${item.lockVersion || "unknown"}`);
-            });
-
-          const lockVersions = cur.map((item) => item.lockVersion?.split("_")[0]).filter(Boolean) as string[];
-          const minLockVersion = semver.minSatisfying(lockVersions, "*");
-          const maxLockVersion = semver.maxSatisfying(lockVersions, "*");
-          if (maxLockVersion && minLockVersion && maxLockVersion !== minLockVersion) {
-            suggestions.push(
-              `lock ${chalk.blue(key)} version to ${chalk.blue(minLockVersion)} or ${chalk.blue(maxLockVersion)}`
-            );
-          }
-        });
-      }
-    };
-
-    changeSuggestionsAndPrintByDependencyObjectData(
-      differentVersionPeerDependencies,
-      "DifferentVersionPeerDependencies"
-    );
-    changeSuggestionsAndPrintByDependencyObjectData(transitivePeerDependencies, "TransitivePeerDependencies");
-
-    if (!silent && suggestions.length) {
-      console.log("");
-      console.log(chalk.green("Suggestions:"));
-      console.log("");
-      suggestions.forEach((item) => {
-        console.log(`- ${item}`);
+      suggestions.push({
+        type: "normal",
+        message: `lock ${chalk.blue(base.name)} version to ${chalk.blue(minLockVersion)} or ${chalk.blue(
+          maxLockVersion
+        )}`,
       });
     }
 
@@ -538,7 +459,7 @@ export class MonorepoHelperCore {
       maxLockVersion,
       minLockVersion,
       differentVersionPeerDependencies,
-      transitivePeerDependencies,
+      differentVersionTransitivePeerDependencies,
       suggestions,
     };
   }

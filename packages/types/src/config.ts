@@ -1,5 +1,15 @@
-export interface IncludeOrExcludePackage {
-  [packageName: string]: "*" | string[];
+export type PackageManager = "pnpm";
+
+export interface IncludeOrExcludeItem {
+  common?: string[];
+  package?: {
+    [packageName: string]: "*" | string[];
+  };
+}
+
+/** dependency lock version in package.json */
+export interface LockPackageDependency {
+  [dependencyName: string]: string | [string, string];
 }
 
 export interface IMonorepoHelperCoreConfig {
@@ -7,40 +17,25 @@ export interface IMonorepoHelperCoreConfig {
    * @default same as rootDirectoryPath
    */
   lockFileDirectoryPath?: string;
-  packageManager: "pnpm";
-  /**
-   * filter by include dependencies
-   */
-  includeDependencies?: {
+  packageManager: PackageManager;
+  dependencies?: {
     /**
-     * all packages
+     * filter by include dependencies
      */
-    all?: string[];
-    package?: IncludeOrExcludePackage;
-  };
-  /**
-   * filter by exclude dependencies
-   */
-  excludeDependencies?: {
+    include?: IncludeOrExcludeItem;
     /**
-     * all packages
+     * filter by exclude dependencies
      */
-    all?: string[];
-    package?: IncludeOrExcludePackage;
-  };
-  /**
-   * manual lock dependencies
-   */
-  lockDependencies?: {
+    exclude?: IncludeOrExcludeItem;
     /**
-     * all packages
+     * lock means to lock the dependency version in package.json not the lockfile
      */
-    all?: {
-      [dependencyName: string]: string;
-    };
-    package?: {
-      [packageName: string]: {
-        [dependencyName: string]: string | [string, string];
+    lock?: {
+      common?: {
+        [dependencyName: string]: LockPackageDependency[string];
+      };
+      package?: {
+        [packageName: string]: LockPackageDependency;
       };
     };
   };

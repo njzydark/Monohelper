@@ -11,6 +11,7 @@ const changePackageDependenciesData = (
     const cur = packageDependencies.find((item) => item.name === key);
     if (cur) {
       cur.lockVersion = resolvedDependencies?.[key];
+      // TODO: this format may be change, so this method need to optimize
       const curChildrenData = allResolvedPackages[`/${key}/${cur.lockVersion}`];
       if (curChildrenData) {
         const dependcies = getDependenciesArrayData(curChildrenData.dependencies, "dependency");

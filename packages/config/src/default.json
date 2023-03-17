@@ -1,12 +1,18 @@
 {
   "packageManager": "pnpm",
   "lockFileDirectoryPath": "./",
-  "excludeDependencies": {
-    "all": [],
-    "package": {}
-  },
-  "lockDependencies": {
-    "all": {},
-    "package": {}
+  "dependencies": {
+    "include": {
+      "common": [],
+      "package": {}
+    },
+    "exclude": {
+      "common": [],
+      "package": {}
+    },
+    "lock": {
+      "common": {},
+      "package": {}
+    }
   }
 }

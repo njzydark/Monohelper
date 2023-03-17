@@ -30,7 +30,12 @@
     "@monohelper/config": "workspace:^0.1.0",
     "@monohelper/core": "workspace:^0.1.0",
     "@monohelper/types": "workspace:^0.1.0",
-    "commander": "^9.4.0",
-    "glob": "7"
+    "chalk": "4.1.2",
+    "commander": "^9.5.0",
+    "glob": "7",
+    "lodash": "^4.17.21"
+  },
+  "devDependencies": {
+    "@types/lodash": "^4.14.185"
   }
 }

@@ -25,10 +25,14 @@ export const getConfigDirectoryPath = async () => {
 
   const getPath = (curPath: string): string | undefined => {
     const filePath = join(curPath, configName);
+
     if (existsSync(filePath)) {
       return curPath;
     }
+
     const prePath = join(curPath, "..");
+
+    // path recursive query exit condition
     if (prePath === homePath) {
       return;
     } else {
